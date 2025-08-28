@@ -60,14 +60,8 @@ def overlap_1d(
     """
     S = np.zeros((g1.max_degree + g2.max_degree + 1, g2.max_degree + 1))
     _overlap_1d_base_case(S, g1, g2)
-    print("Base case overlap matrix:")
-    print(S)
-
     _overlap_1d_vertical_transfer(S, g1, g2)
-    print(S)
-
     _overlap_1d_horizontal_transfer(S, g1, g2)
-    print(S)
     return S[: g1.max_degree + 1, :]
 
 
