@@ -5,6 +5,7 @@ import numpy as np
 
 from integrals import gaussian
 from integrals import overlap
+from integrals import kinetic
 
 
 @dataclasses.dataclass
@@ -19,7 +20,7 @@ class _TestCase3dSparse:
     g1: gaussian.GaussianBasis3d
     g2: gaussian.GaussianBasis3d
     coords: np.ndarray  # shape (n, 6)
-    expected: np.ndarray  # shape (n,)
+    expected: np.ndarray  # shape (n,
 
 
 _TEST_CASES_1D = [
@@ -27,35 +28,44 @@ _TEST_CASES_1D = [
     # For a given i,j we compute:
     # >>> import sympy as sp
     # >>> x = sp.symbols('x')
-    # >>> integrand = (x+2)**i * (x-1)**j * \
-    # ...             sp.exp(-0.5*(x+2)**2) * sp.exp(-0.2*(x-1)**2)
-    # >>> res = sp.integrate(integrand, (x, -sp.oo, sp.oo))
-    # >>> expected[i, j] = float(res.evalf())
+    # >>> expected = np.zeros((d1+1, d2-1)) # where d1 = g1.max_degree, d2 = g2.max_degree
+    # >>> for i in range(d1+1):
+    # >>>     for j in range(d2-1):
+    # >>>         integrand = (x+2)**i * sp.exp(-0.5*(x+2)**2) *\
+    # >>>                     sp.diff((x-1)**j * sp.exp(-0.2*(x-1)**2), x, 2)
+    # >>>         res = sp.integrate(integrand, (x, -sp.oo, sp.oo))
+    # >>>         expected[i, j] = float(res.evalf())
     _TestCase1d(
         g1=gaussian.GaussianBasis1d(max_degree=2, exponent=0.5, center=-2.0),
         g2=gaussian.GaussianBasis1d(max_degree=3, exponent=0.2, center=1.0),
         expected=np.array(
             [
-                [0.58566234, -1.25499072, 3.10759608, -8.45197834],
-                [0.50199629, -0.65737609, 0.87080989, -0.58541841],
-                [0.84861278, -1.10131839, 2.02701126, -4.67289341],
+                [0.2629504373846241, 0.1536723335364682],
+                [-0.06146893341458779, 0.6951843659983115],
+                [-0.01512330901469758, 0.5739191232076303],
             ]
         ),
     ),
     _TestCase1d(
-        g1=gaussian.GaussianBasis1d(max_degree=0, exponent=0.5, center=-2.0),
-        g2=gaussian.GaussianBasis1d(max_degree=0, exponent=0.2, center=1.0),
-        expected=np.array([[0.58566234]]),
-    ),
-    _TestCase1d(
-        g1=gaussian.GaussianBasis1d(max_degree=0, exponent=0.5, center=-2.0),
+        g1=gaussian.GaussianBasis1d(max_degree=2, exponent=0.5, center=-2.0),
         g2=gaussian.GaussianBasis1d(max_degree=2, exponent=0.2, center=1.0),
-        expected=np.array([[0.58566234, -1.25499072, 3.10759608]]),
+        expected=np.array(
+            [
+                [0.2629504373846241],
+                [-0.06146893341458779],
+                [-0.01512330901469758],
+            ]
+        ),
     ),
     _TestCase1d(
         g1=gaussian.GaussianBasis1d(max_degree=2, exponent=0.5, center=-2.0),
+        g2=gaussian.GaussianBasis1d(max_degree=1, exponent=0.2, center=1.0),
+        expected=np.empty((3, 0)),
+    ),
+    _TestCase1d(
+        g1=gaussian.GaussianBasis1d(max_degree=0, exponent=0.5, center=-2.0),
         g2=gaussian.GaussianBasis1d(max_degree=0, exponent=0.2, center=1.0),
-        expected=np.array([[0.58566234], [0.50199629], [0.84861278]]),
+        expected=np.empty((1, 0)),
     ),
 ]
 
@@ -64,13 +74,13 @@ _TEST_CASES_3D = [
     # For a given array of coord of shape (6,), we compute the integral:
     # >>> import sympy as sp
     # >>> x, y, z = sp.symbols('x y z')
-    # >>> c = sp.symbols('c_0:6')
-    # >>> integrand = (x + 2)**c[0] * (y - 0)**c[0] * (z - 1)**c[2] *\
-    # ...             (x - 1)**c[3] * (y - 2)**c[4] * (z + 1)**c[5] *\
-    # ...             sp.exp(-0.5 * ((x + 2)**2 + y**2 + (z - 1)**2)) *\
-    # ...             sp.exp(-0.2 * ((x - 1)**2 + (y - 2)**2 + (z + 1)**2))
-    # >>> integrand_sub = integrand.subs(dict(zip(cs, coord)))
-    # >>> res = sp.integrate(integrand_sub, (x, -sp.oo, sp.oo), (y, -sp.oo, sp.oo), (z, -sp.oo, sp.oo))
+    # >>> integrand = (x + 2)**coord[0] * (y - 0)**coord[1] * (z - 1)**coord[2] *\
+    #                 sp.exp(-0.5 * ((x + 2)**2 + (y - 0)**2 + (z - 1)**2)) *\
+    #                 sp.diff(sp.diff(sp.diff(\
+    #                 (x - 1)**coord[3] * (y - 2)**coord[4] * (z + 1)**coord[5] *\
+    #                 sp.exp(-0.2 * ((x - 1)**2 + (y - 2)**2 + (z + 1)**2))\
+    #                 , x), y), z)
+    # >>> res = sp.integrate(integrand, (x, -sp.oo, sp.oo), (y, -sp.oo, sp.oo), (z, -sp.oo, sp.oo))
     # >>> expected = float(res.evalf())
     _TestCase3dSparse(
         g1=gaussian.GaussianBasis3d(
@@ -85,33 +95,30 @@ _TEST_CASES_3D = [
         ),
         coords=np.array(
             [
-                [2, 1, 0, 1, 0, 1],
                 [0, 0, 0, 0, 0, 0],
-                [2, 2, 2, 3, 3, 3],
             ]
         ),
         expected=np.array(
             [
-                -1.28674380070202,
-                0.838228800713131,
-                98.9595734701201,
+                0.0006269847976842454,
             ]
         ),
     )
 ]
 
 
-class TestOverlap(unittest.TestCase):
-    def test_overlap_1d(self):
+class KineticTest(unittest.TestCase):
+    def test_kinetic_1d_from_overlap_1d(self):
         for case in _TEST_CASES_1D:
             S = overlap.overlap_1d(case.g1, case.g2)
+            T = kinetic.kinetic_1d_from_overlap_1d(S, case.g1, case.g2)
 
             self.assertTrue(
-                np.allclose(S, case.expected, atol=1e-7),
-                msg=f"Failed for g1={case.g1}, g2={case.g2}. Got {S}, expected {case.expected}",
+                np.allclose(T, case.expected, atol=1e-7),
+                msg=f"Failed for g1={case.g1}, g2={case.g2}. Got {T}, expected {case.expected}",
             )
 
-    def test_overlap_3d_from_1d(self):
+    def test_kinetic_3d_from_1d(self):
         for case in _TEST_CASES_3D:
             S_x = overlap.overlap_1d(
                 gaussian.gaussian_3d_to_1d(case.g1, 0),
@@ -126,15 +133,13 @@ class TestOverlap(unittest.TestCase):
                 gaussian.gaussian_3d_to_1d(case.g2, 2),
             )
 
-            S = overlap.overlap_3d_from_1d(S_x, S_y, S_z)
+            T = kinetic.kinetic_3d_from_overlap_1d(
+                S_x, S_y, S_z, case.g1, case.g2
+            )
 
             for coord, expected in zip(case.coords, case.expected):
-                actual = S[tuple(coord)]
+                actual = T[tuple(coord)]
                 self.assertTrue(
                     np.allclose(actual, expected, atol=1e-7),
                     msg=f"Failed for g1={case.g1}, g2={case.g2}, coord={coord}. Got {actual}, expected {expected}",
                 )
-
-
-if __name__ == "__main__":
-    unittest.main()

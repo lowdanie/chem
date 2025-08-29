@@ -43,18 +43,18 @@ def overlap_1d(
     g1: gaussian.GaussianBasis1d, g2: gaussian.GaussianBasis1d
 ) -> np.ndarray:
     """
-    If
-    g1.max_degree = d1
-    g1.exponent = a
-    g1.center = A
-    g2.max_degree = d2
-    g2.exponent = b
-    g2.center = B
+    Set:
+    d1 = g1.max_degree
+    a = g1.exponent
+    A = g1.center
+    d2 = g2.max_degree
+    b = g2.exponent
+    B = g2.center
 
-    Then the output S has shape (d1+1, d2+1).
+    The output S has shape (d1+1, d2+1).
 
     For each 0 <= i <= d1+1 and 0 <= j <= d2+1:
-    S[i,j] = \int (x-A)^i (x-B)^j e^(-a(x-A)^2) e^(-b(x-B)^2) dx
+    S[i,j] = integral (x-A)^i (x-B)^j e^(-a(x-A)^2) e^(-b(x-B)^2) dx
 
     where the integral is over all space.
     """
@@ -102,8 +102,9 @@ def overlap_3d(
     (jx, jy, jz) with 0 <= jx, jy, jz <= d2:
 
     S[ix, iy, iz, jx, jy, jz] =
-    \int\int\int (x-Ax)^ix (y-Ay)^iy (z-Az)^iz e^(-a((x-Ax)^2+(y-Ay)^2+(z-Az)^2))
-                 (x-Bx)^jx (y-By)^jy (z-Bz)^jz e^(-b((x-Bx)^2+(y-By)^2+(z-Bz)^2))
+    integral integral integral 
+        (x-Ax)^ix (y-Ay)^iy (z-Az)^iz e^(-a((x-Ax)^2+(y-Ay)^2+(z-Az)^2))
+        (x-Bx)^jx (y-By)^jy (z-Bz)^jz e^(-b((x-Bx)^2+(y-By)^2+(z-Bz)^2))
     dx dy dz
 
     where the integral is over all space.

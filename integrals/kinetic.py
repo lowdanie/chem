@@ -33,13 +33,124 @@ def kinetic_1d_from_overlap_1d(
             f"Expected S.shape to be {(g1.max_degree + 1, g2.max_degree + 1)}, got {S.shape}"
         )
 
+    if g2.max_degree < 2:
+        return np.empty((S.shape[0], 0), dtype=S.dtype)
+
     T = np.zeros((S.shape[0], S.shape[1] - 2), dtype=S.dtype)
 
     b = g2.exponent
-    j_array = np.arange(2, T.shape[1])
+    j_array = np.arange(T.shape[1])[np.newaxis, :]
 
     T[:, 2:] += (j_array[:, 2:] * (j_array[:, 2:] - 1)) * S[:, :-4]
     T[:, :] -= 2 * b * (2 * j_array + 1) * S[:, :-2]
     T[:, :] += 4 * b**2 * S[:, 2:]
+
+    return T
+
+
+def kinetic_3d_from_overlap_1d(
+    S_x: np.ndarray,
+    S_y: np.ndarray,
+    S_z: np.ndarray,
+    g1: gaussian.GaussianBasis3d,
+    g2: gaussian.GaussianBasis3d,
+) -> np.ndarray:
+    """
+    We assume that:
+    S_x = overlap_1d(g1_x, g2_x)
+    S_y = overlap_1d(g1_y, g2_y)
+    S_z = overlap_1d(g1_z, g2_z)
+
+    where g1_x, g1_y, g1_z are the 1d Gaussian basis functions corresponding to
+    g1 and similarly for g2.
+    
+    Set
+    d1 = g1.max_degree, d2 = g2.max_degree
+    a = g1.exponent, b = g2.exponent
+    A = g1.center, B = g2.center
+
+    Then:
+    S_x.shape = S_y.shape = S_z.shape = (d1 + 1, d2 + 1)
+
+    The output T has shape
+    (d1 + 1, d1 + 1, d1 + 1, d2 - 1, d2 - 1, d2 - 1)
+
+    And is defined by:
+
+    T[ix, iy, iz, jx, jy, jz] =
+        integral integral integral
+            (x-Ax)^ix (y-Ay)^iy (z-Az)^iz e^(-a((x-Ax)^2+(y-Ay)^2+(z-Az)^2))
+            (d^2/dx^2 + d^2/dy^2 + d^2/dz^2)
+            [(x-Bx)^jx (y-By)^jy (z-Bz)^jz e^(-b((x-Bx)^2+(y-By)^2+(z-Bz)^2))]
+        dx dy dz
+
+    where the integral is over all space.
+
+    We use the formula:
+    T[ix, iy, iz, jx, jy, jz] =
+        T_x[ix, jx] * S_y[iy, jy] * S_z[iz, jz] +
+        S_x[ix, jx] * T_y[iy, jy] * S_z[iz, jz] +
+        S_x[ix, jx] * S_y[iy, jy] * T_z[iz, jz]
+    """
+    # if not (S_x.shape == S_y.shape == S_z.shape):
+    #     raise ValueError("S_x, S_y, and S_z must have the same shape")
+
+    # d1 = S_x.shape[0] - 1
+    # d2 = S_x.shape[1] - 1
+
+    # if not (T_x.shape == T_y.shape == T_z.shape == (d1 + 1, d2 - 1)):
+    #     raise ValueError(
+    #         f"T_x, T_y, and T_z must have shape: ({d1 + 1}, {d2 - 1})"
+    #     )
+
+    # T = np.zeros((d1 + 1, d1 + 1, d1 + 1, d2 - 1, d2 - 1, d2 - 1))
+
+    # print("T_x")
+    # print(T_x)
+    # print("S_y")
+    # print(S_y)
+    # print("S_z")
+    # print(S_z)
+
+    T_x = kinetic_1d_from_overlap_1d(
+        S_x,
+        gaussian.gaussian_3d_to_1d(g1, 0),
+        gaussian.gaussian_3d_to_1d(g2, 0),
+    )
+    T_y = kinetic_1d_from_overlap_1d(
+        S_y,
+        gaussian.gaussian_3d_to_1d(g1, 1),
+        gaussian.gaussian_3d_to_1d(g2, 1),
+    )
+    T_z = kinetic_1d_from_overlap_1d(
+        S_z,
+        gaussian.gaussian_3d_to_1d(g1, 2),
+        gaussian.gaussian_3d_to_1d(g2, 2),
+    )
+
+    print("S_x")
+    print(S_x)
+    print("T_x")
+    print(T_x)
+    print("S_y")
+    print(S_y)
+    print("T_y")
+    print(T_y)
+    print("S_z")
+    print(S_z)
+    print("T_z")
+    print(T_z)
+
+    d1 = g1.max_degree
+    d2 = g2.max_degree
+
+    T = np.zeros((d1 + 1, d1 + 1, d1 + 1, d2 - 1, d2 - 1, d2 - 1))
+
+    T += np.einsum("ad,be,cf->abcdef", T_x, S_y[:, :-2], S_z[:, :-2])
+    T += np.einsum("ad,be,cf->abcdef", S_x[:, :-2], T_y, S_z[:, :-2])
+    T += np.einsum("ad,be,cf->abcdef", S_x[:, :-2], S_y[:, :-2], T_z)
+
+    print("T")
+    print(T[0,0,0,0,0,0])
 
     return T
