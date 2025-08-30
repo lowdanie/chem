@@ -21,7 +21,7 @@ def kinetic_1d_from_overlap_1d(
     B = g2.center
 
     For each 0 <= i < d1 and 0 <= j <d2 - 2:
-    T[i,j] = \int (x-A)^i e^(-a(x-A)^2) (d^2/dx^2) [(x-B)^j e^(-b(x-B)^2)] dx
+    T[i,j] = integral (x-A)^i e^(-a(x-A)^2) (d^2/dx^2) [(x-B)^j e^(-b(x-B)^2)] dx
 
     where the integral is over all space.
 
@@ -69,10 +69,7 @@ def kinetic_3d_from_overlap_1d(
     a = g1.exponent, b = g2.exponent
     A = g1.center, B = g2.center
 
-    Then:
-    S_x.shape = S_y.shape = S_z.shape = (d1 + 1, d2 + 1)
-
-    The output T has shape
+    Then the output T has shape
     (d1 + 1, d1 + 1, d1 + 1, d2 - 1, d2 - 1, d2 - 1)
 
     And is defined by:
@@ -92,26 +89,6 @@ def kinetic_3d_from_overlap_1d(
         S_x[ix, jx] * T_y[iy, jy] * S_z[iz, jz] +
         S_x[ix, jx] * S_y[iy, jy] * T_z[iz, jz]
     """
-    # if not (S_x.shape == S_y.shape == S_z.shape):
-    #     raise ValueError("S_x, S_y, and S_z must have the same shape")
-
-    # d1 = S_x.shape[0] - 1
-    # d2 = S_x.shape[1] - 1
-
-    # if not (T_x.shape == T_y.shape == T_z.shape == (d1 + 1, d2 - 1)):
-    #     raise ValueError(
-    #         f"T_x, T_y, and T_z must have shape: ({d1 + 1}, {d2 - 1})"
-    #     )
-
-    # T = np.zeros((d1 + 1, d1 + 1, d1 + 1, d2 - 1, d2 - 1, d2 - 1))
-
-    # print("T_x")
-    # print(T_x)
-    # print("S_y")
-    # print(S_y)
-    # print("S_z")
-    # print(S_z)
-
     T_x = kinetic_1d_from_overlap_1d(
         S_x,
         gaussian.gaussian_3d_to_1d(g1, 0),
@@ -128,19 +105,6 @@ def kinetic_3d_from_overlap_1d(
         gaussian.gaussian_3d_to_1d(g2, 2),
     )
 
-    print("S_x")
-    print(S_x)
-    print("T_x")
-    print(T_x)
-    print("S_y")
-    print(S_y)
-    print("T_y")
-    print(T_y)
-    print("S_z")
-    print(S_z)
-    print("T_z")
-    print(T_z)
-
     d1 = g1.max_degree
     d2 = g2.max_degree
 
@@ -149,8 +113,5 @@ def kinetic_3d_from_overlap_1d(
     T += np.einsum("ad,be,cf->abcdef", T_x, S_y[:, :-2], S_z[:, :-2])
     T += np.einsum("ad,be,cf->abcdef", S_x[:, :-2], T_y, S_z[:, :-2])
     T += np.einsum("ad,be,cf->abcdef", S_x[:, :-2], S_y[:, :-2], T_z)
-
-    print("T")
-    print(T[0,0,0,0,0,0])
 
     return T
