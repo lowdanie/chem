@@ -22,9 +22,12 @@ def _overlap_1d_vertical_transfer(
     P = (g1.exponent * g1.center + g2.exponent * g2.center) / p
 
     for i in range(1, g1.max_degree + g2.max_degree + 1):
-        S[i, 0] = (P - g1.center) * S[i - 1, 0] + ((i - 1) / (2 * p)) * S[
-            i - 2, 0
-        ]
+        # fmt: off
+        S[i, 0] = (
+            (P - g1.center) * S[i - 1, 0] 
+            + ((i - 1) / (2 * p)) * S[i - 2, 0]
+        )
+        # fmt: on
 
 
 def _overlap_1d_horizontal_transfer(
@@ -33,10 +36,13 @@ def _overlap_1d_horizontal_transfer(
     g2: gaussian.GaussianBasis1d,
 ) -> None:
     diff = g1.center - g2.center
+    size_1 = g1.max_degree + g2.max_degree + 1
+    size_2 = g2.max_degree + 1
 
-    for j in range(1, g2.max_degree + 1):
-        for i in range(0, g1.max_degree + g2.max_degree - j + 1):
-            S[i, j] = diff * S[i, j - 1] + S[i + 1, j - 1]
+    for j in range(1, size_2):
+        S[: size_1 - j, j] = (
+            diff * S[: size_1 - j, j - 1] + S[1 : size_1 - j + 1, j - 1]
+        )
 
 
 def overlap_1d(
@@ -102,7 +108,7 @@ def overlap_3d(
     (jx, jy, jz) with 0 <= jx, jy, jz <= d2:
 
     S[ix, iy, iz, jx, jy, jz] =
-    integral integral integral 
+    integral integral integral
         (x-Ax)^ix (y-Ay)^iy (z-Az)^iz e^(-a((x-Ax)^2+(y-Ay)^2+(z-Az)^2))
         (x-Bx)^jx (y-By)^jy (z-Bz)^jz e^(-b((x-Bx)^2+(y-By)^2+(z-Bz)^2))
     dx dy dz
