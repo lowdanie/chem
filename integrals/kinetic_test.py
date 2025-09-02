@@ -90,12 +90,12 @@ _TEST_CASES_3D = [
         g1=gaussian.GaussianBasis3d(
             max_degree=2,
             exponent=0.5,
-            center=np.array([-2.0, 0.0, 1.0]),  # -2,0,1
+            center=np.array([-2.0, 0.0, 1.0]),
         ),
         g2=gaussian.GaussianBasis3d(
             max_degree=3,
             exponent=0.2,
-            center=np.array([1.0, 2.0, -1.0]),  # 1,2,-1
+            center=np.array([1.0, 2.0, -1.0]),
         ),
         expected_shape=(3, 3, 3, 2, 2, 2),
         coords=np.array(

@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 
 from integrals import coulomb
+from integrals import gaussian
 
 
 @dataclasses.dataclass
@@ -11,6 +12,15 @@ class _BoysTestCase:
     n: int
     x: float
     expected: float
+
+
+@dataclasses.dataclass
+class OneElectronTestCase:
+    g1: coulomb.gaussian.GaussianBasis3d
+    g2: coulomb.gaussian.GaussianBasis3d
+    C: np.ndarray
+    expected_shape: tuple[int, int, int, int, int, int]
+    expected_values: dict[tuple[int, int, int, int, int, int], float]
 
 
 # The expected values were computed using sympy:
@@ -29,6 +39,47 @@ _BOYS_TEST_CASES = [
     _BoysTestCase(n=5, x=1.0, expected=0.03936486451348416),
 ]
 
+# The expected values were computed with scipy.integrate:
+# >>> import numpy as np
+# >>> from scipy import integrate
+# >>> a, A = g1.exponent, g1.center
+# >>> b, B = g2.exponent, g2.center
+# >>>
+# >>> def f(z,y,x):
+# >>>   G1 = (x - A[0])**coords[0] * (y - A[1])**coords[1] * (z - A[2])**coords[2] *\
+# >>>       np.exp(-a * ((x - A[0])**2 + (y - A[1])**2 + (z - A[2])**2))
+# >>>   G2 = (x - B[0])**coords[3] * (y - B[1])**coords[4] * (z - B[2])**coords[5] *\
+# >>>   np.exp(-b * ((x - B[0])**2 + (y - B[1])**2 + (z - B[2])**2))
+# >>>   dist = np.sqrt((x - C[0])**2 + (y - C[1])**2 + (z - C[2])**2)
+# >>>   return G1 * G2 / dist
+# >>> expected, _ = integrate.nquad(f, -6, 6, -6, 6, -6, 6)
+_ONE_ELECTRON_TEST_CASES = [
+    OneElectronTestCase(
+        g1=gaussian.GaussianBasis3d(
+            max_degree=2,
+            exponent=0.5,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=gaussian.GaussianBasis3d(
+            max_degree=3,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        C=np.array([1.0, -1.0, 2.0]),
+        expected_shape=(3, 3, 3, 4, 4, 4),
+        expected_values={
+            (0, 0, 0, 0, 0, 0): 0.2714497857051819,
+            (2, 2, 2, 0, 0, 0): 0.3617406824211391,
+            (0, 0, 0, 3, 3, 3): 142.39866470590218,
+            (2, 2, 2, 3, 3, 3): 37.41799405120356,
+            (0, 1, 2, 1, 2, 3): 1.6977878772651622,
+            (1, 0, 2, 2, 1, 1): -0.6010626174920991,
+            (1, 1, 1, 1, 1, 1): -0.013057308270078337,
+            (0, 0, 0, 0, 0, 3): 1.8621493778032885,
+        },
+    ),
+]
+
 
 class CoulombTest(unittest.TestCase):
     def test_boys(self):
@@ -39,6 +90,16 @@ class CoulombTest(unittest.TestCase):
                 case.expected,
                 places=12,
             )
+
+    def test_one_electron(self):
+        for case in _ONE_ELECTRON_TEST_CASES:
+            I = coulomb.one_electron(case.g1, case.g2, case.C)
+            self.assertEqual(I.shape, case.expected_shape)
+            for coord, expected in case.expected_values.items():
+                actual = I[tuple(coord)]
+                self.assertTrue(
+                    np.allclose(actual, expected), msg=f"coords={coord}"
+                )
 
 
 if __name__ == "__main__":
