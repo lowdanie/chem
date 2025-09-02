@@ -121,9 +121,13 @@ def _horizontal_transfer(
     We assume that 0 <= src_dim < tgt_dim < len(I.shape).
 
     For all: i_0,...i_{tgt_dim} we apply the following recursive formula:
+
     I[i_0,...,i_{src_dim},...,i_{tgt_dim},0,...,0] =
         (A - B)I[i_0,...,i_{src_dim},...,i_{tgt_dim}-1,...] +
         I[i_0,...,i_{src_dim}+1,...,i_{tgt_dim}-1,0,...,0]
+
+    for all 1 <= i_{tgt_dim} < I.shape[tgt_dim]
+    and 0 <= i_{src_dim} < I.shape[src_dim] - i_{tgt_dim}.
     """
     # Substitute 0 in the last len(I.shape) - tgt_dim - 1 dimensions.
     I = I[(...,) + (0,) * (len(I.shape) - tgt_dim - 1)]
@@ -181,9 +185,8 @@ def one_electron(
 
     I[..., 0, 0, 0] = (2 * np.pi / (a + b)) * _V(padded_g1, g2, a + b, C)
 
-    _one_electron_horizontal_transfer(I[..., 0, 0], A[0], B[0])
-    _one_electron_horizontal_transfer(I[..., 0], A[1], B[1])
-    _one_electron_horizontal_transfer(I, A[2], B[2])
+    for i in range(3):
+        _horizontal_transfer(I, i, i + 3, A[i], B[i])
 
     return I[: g1.max_degree + 1, : g1.max_degree + 1, : g1.max_degree + 1, ...]
 
@@ -193,7 +196,7 @@ def two_electron(
     g2: gaussian.GaussianBasis3d,
     g3: gaussian.GaussianBasis3d,
     g4: gaussian.GaussianBasis3d,
-) -> float:
+) -> np.ndarray:
     """
     Compute the two electron Coulomb integral:
 
@@ -252,9 +255,18 @@ def two_electron(
     p = a + b
     q = c + d
 
-    I_ab = I[..., 0, 0, 0, 0, 0, 0]
-    _two_electron_horizontal_transfer(I_ab[..., 0, 0], A[0], B[0])
-    _two_electron_horizontal_transfer(I_ab[..., 0], A[1], B[1])
-    _two_electron_horizontal_transfer(I_ab, A[2], B[2])
+    for i in range(3):
+        _horizontal_transfer(I, i, i + 3, A[i], B[i])
 
-    _electron_transfer()
+    for i in range(3):
+        _electron_transfer(I, i, i + 6, p, q, A[i], B[i], C[i], D[i])
+
+    for i in range(3):
+        _horizontal_transfer(I, i + 6, i + 9, C[i], D[i])
+
+    return I[
+        (slice(0, g1.max_degree + 1),) * 3
+        + (slice(0, g2.max_degree + 1),) * 3
+        + (slice(0, g3.max_degree + 1),) * 3
+        + (slice(0, g4.max_degree + 1),) * 3
+    ]
