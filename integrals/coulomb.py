@@ -113,6 +113,35 @@ def _one_electron_horizontal_transfer(
         # fmt: on
 
 
+def _horizontal_transfer(
+    I: np.ndarray, src_dim: int, tgt_dim: int, A: float, B: float
+) -> None:
+    """Apply a horizontal transfer from src_dim to tgt_dim.
+
+    We assume that 0 <= src_dim < tgt_dim < len(I.shape).
+
+    For all: i_0,...i_{tgt_dim} we apply the following recursive formula:
+    I[i_0,...,i_{src_dim},...,i_{tgt_dim},0,...,0] =
+        (A - B)I[i_0,...,i_{src_dim},...,i_{tgt_dim}-1,...] +
+        I[i_0,...,i_{src_dim}+1,...,i_{tgt_dim}-1,0,...,0]
+    """
+    # Substitute 0 in the last len(I.shape) - tgt_dim - 1 dimensions.
+    I = I[(...,) + (0,) * (len(I.shape) - tgt_dim - 1)]
+
+    # Swap src_dim with tgt_dim - 1.
+    I = np.swapaxes(I, src_dim, tgt_dim - 1)
+
+    src_shape = I.shape[-2]
+    tgt_shape = I.shape[-1]
+    for j in range(1, tgt_shape):
+        # fmt: off
+        I[..., :src_shape - j, j] = (
+            (A - B) * I[..., :src_shape - j, j - 1]
+            + I[..., 1 : src_shape - j + 1, j - 1]
+        )
+        # fmt: on
+
+
 def one_electron(
     g1: gaussian.GaussianBasis3d,
     g2: gaussian.GaussianBasis3d,
@@ -218,8 +247,14 @@ def two_electron(
 
     _two_electron_base_case(I, padded_g1, g2, padded_g3, g4)
 
-    A, B = g1.center, g2.center
+    A, B, C, D = g1.center, g2.center, g3.center, g4.center
+    a, b, c, d = g1.exponent, g2.exponent, g3.exponent, g4.exponent
+    p = a + b
+    q = c + d
+
     I_ab = I[..., 0, 0, 0, 0, 0, 0]
     _two_electron_horizontal_transfer(I_ab[..., 0, 0], A[0], B[0])
     _two_electron_horizontal_transfer(I_ab[..., 0], A[1], B[1])
     _two_electron_horizontal_transfer(I_ab, A[2], B[2])
+
+    _electron_transfer()
