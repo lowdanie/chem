@@ -23,6 +23,16 @@ class OneElectronTestCase:
     expected_values: dict[tuple[int, int, int, int, int, int], float]
 
 
+@dataclasses.dataclass
+class TwoElectronTestCase:
+    g1: coulomb.gaussian.GaussianBasis3d
+    g2: coulomb.gaussian.GaussianBasis3d
+    g3: coulomb.gaussian.GaussianBasis3d
+    g4: coulomb.gaussian.GaussianBasis3d
+    expected_shape: tuple[int, ...]
+    expected_values: dict[tuple[int, ...], float]
+
+
 # The expected values were computed using sympy:
 # >>> import sympy as sp
 # >>> t = sp.symbols('t')
@@ -80,6 +90,48 @@ _ONE_ELECTRON_TEST_CASES = [
     ),
 ]
 
+_TWO_ELECTRON_TEST_CASES = [
+    TwoElectronTestCase(
+        g1=gaussian.GaussianBasis3d(
+            max_degree=2,
+            exponent=0.1,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=gaussian.GaussianBasis3d(
+            max_degree=2,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        g3=gaussian.GaussianBasis3d(
+            max_degree=2,
+            exponent=0.3,
+            center=np.array([2.0, 1.0, -1.0]),
+        ),
+        g4=gaussian.GaussianBasis3d(
+            max_degree=2,
+            exponent=0.4,
+            center=np.array([0.0, -1.0, 2.0]),
+        ),
+        expected_shape=(3,) * 12,
+        expected_values={
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 2.2635736015604326,
+            (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 4.887010985110651,
+            (0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0): -1.9037098195706461,
+            (0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0): -2.741168594064688,
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0): 1.7859786090561764,
+            (1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0): -0.9776795714262435,
+            (1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0): -5.643744873448038,
+            (1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0): 9.677117184425429,
+            (1, 0, 0, 1, 0, 0, 2, 0, 0, 1, 0, 0): 0.4051466103984736,
+            (0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0): -2.5782646240930593,
+            (0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0): 0.9419537701948736,
+            (0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1): -1.2763270734987182,
+            (1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1): -0.046193719169573925,
+            (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2): 1576.673145693577,
+        },
+    ),
+]
+
 
 class CoulombTest(unittest.TestCase):
     def test_boys(self):
@@ -99,6 +151,17 @@ class CoulombTest(unittest.TestCase):
                 actual = I[tuple(coord)]
                 self.assertTrue(
                     np.allclose(actual, expected), msg=f"coords={coord}"
+                )
+
+    def test_two_electron(self):
+        for case in _TWO_ELECTRON_TEST_CASES:
+            I = coulomb.two_electron(case.g1, case.g2, case.g3, case.g4)
+            self.assertEqual(I.shape, case.expected_shape)
+            for coord, expected in case.expected_values.items():
+                actual = I[tuple(coord)]
+                self.assertTrue(
+                    np.allclose(actual, expected),
+                    msg=f"actual={actual}, expected={expected}, coords={coord}",
                 )
 
 

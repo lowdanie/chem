@@ -18,7 +18,7 @@ def _V_base_case(
     V: np.ndarray,
     g1: gaussian.GaussianBasis3d,
     g2: gaussian.GaussianBasis3d,
-    p: float,
+    s: float,
     C: np.ndarray,
     P: np.ndarray,
 ) -> None:
@@ -26,7 +26,7 @@ def _V_base_case(
     dist_sq = np.sum(np.square(P - C))
 
     for n in range(V.shape[3]):
-        V[0, 0, 0, n] = K * boys(n, p * dist_sq)
+        V[0, 0, 0, n] = K * boys(n, s * dist_sq)
 
 
 def _V_vertical_transfer(
@@ -68,7 +68,11 @@ def _V(
     s: float,
     C: np.ndarray,
 ) -> np.ndarray:
-    """Auxiliary function for computing one and two electron Coulomb integrals."""
+    """Auxiliary function for computing one and two electron Coulomb integrals.
+
+    The output has shape:
+    (g1.max_degree + 1, g1.max_degree + 1, g1.max_degree + 1)
+    """
     p = g1.exponent + g2.exponent
     P = (g1.exponent * g1.center + g2.exponent * g2.center) / p
     A = g1.center
@@ -78,7 +82,7 @@ def _V(
     size_d = g1.max_degree + 1
     V = np.zeros((size_d, size_d, size_d, 3 * size_d), dtype=np.float64)
 
-    _V_base_case(V, g1, g2, p, C, P)
+    _V_base_case(V, g1, g2, s, C, P)
     _V_vertical_transfer(V[:, 0, 0, :], 3 * size_d, s, p, A[0], C[0], P[0])
     _V_vertical_transfer(V[:, :, 0, :], 2 * size_d, s, p, A[1], C[1], P[1])
     _V_vertical_transfer(V, size_d, s, p, A[2], C[2], P[2])
@@ -86,31 +90,25 @@ def _V(
     return V[:, :, :, 0]
 
 
-def _one_electron_horizontal_transfer(
-    I: np.ndarray, A: float, B: float
+def _two_electron_base_case(
+    I: np.ndarray,
+    g1: gaussian.GaussianBasis3d,
+    g2: gaussian.GaussianBasis3d,
+    g3: gaussian.GaussianBasis3d,
+    g4: gaussian.GaussianBasis3d,
 ) -> None:
-    """
-    I has 4 <= d <= 6 dimensions.
+    c, C = g3.exponent, g3.center
+    d, D = g4.exponent, g4.center
 
-    We apply the following recursive formula to dimensions d and d-3:
+    p = g1.exponent + g2.exponent
+    q = c + d
+    s = (p * q) / (p + q)
 
-    I[..., i, :, :, j] = (A - B)I[..., i, :, :, j-1] + I[..., i+1, :, :, j-1]
+    Q = (c * C + d * D) / q
 
-    for all 0 <= i < I.shape[d-3] - j and 1 <= j < I.shape[d].
-    """
-    dim_1 = len(I.shape) - 4
-    dim_2 = len(I.shape) - 1
-
-    size_1 = I.shape[dim_1]
-    size_2 = I.shape[dim_2]
-
-    for j in range(1, size_2):
-        # fmt: off
-        I[...,:size_1 - j, :, : , j] = (
-            (A - B) * I[..., :size_1 - j, :, :, j - 1]
-            + I[..., 1 : size_1 - j + 1, :, : , j - 1]
-        )
-        # fmt: on
+    K = gaussian.overlap_prefactor_3d(g3, g4)
+    alpha = 2 * np.power(np.pi, 5 / 2) / (p * q * np.sqrt(p + q))
+    I[(...,) + (0,) * (len(I.shape) - 3)] = alpha * K * _V(g1, g2, s, Q)
 
 
 def _horizontal_transfer(
@@ -129,21 +127,99 @@ def _horizontal_transfer(
     for all 1 <= i_{tgt_dim} < I.shape[tgt_dim]
     and 0 <= i_{src_dim} < I.shape[src_dim] - i_{tgt_dim}.
     """
+    print("Horizontal transfer.")
+
     # Substitute 0 in the last len(I.shape) - tgt_dim - 1 dimensions.
     I = I[(...,) + (0,) * (len(I.shape) - tgt_dim - 1)]
+    print("after 0 sub. I.shape: ", I.shape)
 
     # Swap src_dim with tgt_dim - 1.
     I = np.swapaxes(I, src_dim, tgt_dim - 1)
 
-    src_shape = I.shape[-2]
-    tgt_shape = I.shape[-1]
-    for j in range(1, tgt_shape):
+    src_size = I.shape[-2]
+    tgt_size = I.shape[-1]
+    for j in range(1, tgt_size):
         # fmt: off
-        I[..., :src_shape - j, j] = (
-            (A - B) * I[..., :src_shape - j, j - 1]
-            + I[..., 1 : src_shape - j + 1, j - 1]
+        I[..., :src_size - j, j] = (
+            (A - B) * I[..., :src_size - j, j - 1]
+            + I[..., 1 : src_size - j + 1, j - 1]
         )
         # fmt: on
+
+
+def _electron_transfer(I, src_dim, tgt_dim, a, b, c, d, A, B, C, D) -> None:
+    """Apply an electron transfer from src_dim to tgt_dim.
+
+    We assume that 0 <= src_dim < tgt_dim < len(I.shape).
+
+    To simplify the indexing we first swap the src_dim and tgt_dim-1
+    dimensions.
+
+    Set p=a+b and q=c+d.
+
+    We apply the following recursive formula where i indexes
+    src_dim = tgt_dim-1 and j indexes tgt_dim:
+
+    I[..., i, j, 0,...,0] =
+      -(1/q)(b(A - B) + d(C - D))I[...,i, j-1, 0,...,0]
+      +(i/(2q))I[...,i-1,j-1,0,...0]
+      +((j-1)/(2q)I[...,i,j-2,0,...,0]
+      -(p/q)I[...,i+1,j-1,0,...,0]
+
+    for all 0 <= j < I.shape[tgt_dim] and 0 <= i < I.shape[src_dim] - j.
+    where
+    """
+    print("Electron transfer")
+
+    # Substitute 0 in the last len(I.shape) - tgt_dim - 1 dimensions.
+    I = I[(...,) + (0,) * (len(I.shape) - tgt_dim - 1)]
+    print("after 0 sub. I.shape: ", I.shape)
+
+    # Swap src_dim with tgt_dim - 1.
+    I = np.swapaxes(I, src_dim, tgt_dim - 1)
+    print("after swap. I.shape: ", I.shape)
+
+    src_size = I.shape[-2]
+    tgt_size = I.shape[-1]
+
+    # An array with shape (1,...,1,src_size) to store the index
+    # in the src_dim dimension.
+    i_array = np.arange(src_size).reshape(
+        (1,) * (len(I.shape) - 2) + (src_size,)
+    )
+
+    print("i_array shape: ", i_array.shape)
+
+    # Precompute some coefficients in the recursion formula.
+    p = a + b
+    q = c + d
+    alpha = -(1 / q) * (b * (A - B) + d * (C - D))
+    i_over_2q = i_array / (2 * q)
+
+    # Start with the case I[...,i,j] where j=1 and 0 <= i < src_size - 1
+    I[..., 0, 1] = alpha * I[..., 0, 0] - (p / q) * I[..., 1, 0]
+    I[..., 1 : src_size - 1, 1] = (
+        alpha * I[..., 1 : src_size - 1, 0]
+        + i_over_2q[..., 1 : src_size - 1] * I[..., : src_size - 2, 0]
+        - (p / q) * I[..., 2:src_size, 0]
+    )
+
+    # Now compute I[...,i,j] where 1 < j < tgt_size and 0 <= i < src_size - j
+    for j in range(2, tgt_size):
+        j_factor = (j - 1) / (2 * q)
+
+        I[..., 0, j] = (
+            alpha * I[..., 0, j - 1]
+            + j_factor * I[..., 0, j - 2]
+            - (p / q) * I[..., 1, j - 1]
+        )
+        I[..., 1 : src_size - j, j] = (
+            alpha * I[..., 1 : src_size - j, j - 1]
+            + i_over_2q[..., 1 : src_size - j]
+            * I[..., : src_size - j - 1, j - 1]
+            + j_factor * I[..., 1 : src_size - j, j - 2]
+            - (p / q) * I[..., 2 : src_size - j + 1, j - 1]
+        )
 
 
 def one_electron(
@@ -240,10 +316,12 @@ def two_electron(
         center=g1.center,
     )
 
+    # Note that we order the axes as g1, g3, g2, g4 since we first do an
+    # electron transfer g1->g3, then horizontal transfers g1->g2, g3->g4
     I = np.zeros(
         (padded_g1.max_degree + 1,) * 3
-        + (g2.max_degree + 1,) * 3
         + (padded_g3.max_degree + 1,) * 3
+        + (g2.max_degree + 1,) * 3
         + (g4.max_degree + 1,) * 3,
         dtype=np.float64,
     )
@@ -252,18 +330,23 @@ def two_electron(
 
     A, B, C, D = g1.center, g2.center, g3.center, g4.center
     a, b, c, d = g1.exponent, g2.exponent, g3.exponent, g4.exponent
-    p = a + b
-    q = c + d
 
     for i in range(3):
-        _horizontal_transfer(I, i, i + 3, A[i], B[i])
+        print(f"electron transfer {i} -> {i+3}")
+        _electron_transfer(I, i, i + 3, a, b, c, d, A[i], B[i], C[i], D[i])
 
     for i in range(3):
-        _electron_transfer(I, i, i + 6, p, q, A[i], B[i], C[i], D[i])
+        print(f"horizontal transfer {i} -> {i+6}")
+        _horizontal_transfer(I, i, i + 6, A[i], B[i])
 
     for i in range(3):
-        _horizontal_transfer(I, i + 6, i + 9, C[i], D[i])
+        print(f"horizontal transfer {i+3} -> {i+9}")
+        _horizontal_transfer(I, i + 3, i + 9, C[i], D[i])
 
+    # Reorder the axes from g1, g3, g2, g4 to g1, g2, g3, g4
+    I = np.moveaxis(I, [3, 4, 5], [6, 7, 8])
+
+    # Remove the padding.
     return I[
         (slice(0, g1.max_degree + 1),) * 3
         + (slice(0, g2.max_degree + 1),) * 3
