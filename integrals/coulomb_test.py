@@ -90,6 +90,13 @@ _ONE_ELECTRON_TEST_CASES = [
     ),
 ]
 
+# The expected values were computed with pyquante2.
+# >>> from pyquante2.ints import two as two_ints
+# >>> expected_values[coords] = two_ints.coulomb_repulsion(
+# >>>    g1.center, 1, coords[:3], g1.exponent,
+# >>>    g2.center, 1, coords[3:6], g2.exponent,
+# >>>    g3.center, 1, coords[6:9], g3.exponent,
+# >>>    g4.center, 1, coords[9:], g4.exponent)
 _TWO_ELECTRON_TEST_CASES = [
     TwoElectronTestCase(
         g1=gaussian.GaussianBasis3d(
@@ -154,7 +161,8 @@ class CoulombTest(unittest.TestCase):
             for coord, expected in case.expected_values.items():
                 actual = I[tuple(coord)]
                 self.assertTrue(
-                    np.allclose(actual, expected), msg=f"coords={coord}"
+                    np.allclose(actual, expected),
+                    msg=f"actual={actual}, expected={expected}, coords={coord}",
                 )
 
     def test_two_electron(self):

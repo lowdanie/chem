@@ -347,5 +347,4 @@ def two_electron(
     # Reorder the axes from g1, g3, g2, g4 to g1, g2, g3, g4
     I = np.moveaxis(I, [3, 4, 5], [6, 7, 8])
 
-    # Remove the padding.
     return I
