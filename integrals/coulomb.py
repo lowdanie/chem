@@ -127,11 +127,8 @@ def _horizontal_transfer(
     for all 1 <= i_{tgt_dim} < I.shape[tgt_dim]
     and 0 <= i_{src_dim} < I.shape[src_dim] - i_{tgt_dim}.
     """
-    print("Horizontal transfer.")
-
     # Substitute 0 in the last len(I.shape) - tgt_dim - 1 dimensions.
     I = I[(...,) + (0,) * (len(I.shape) - tgt_dim - 1)]
-    print("after 0 sub. I.shape: ", I.shape)
 
     # Swap src_dim with tgt_dim - 1.
     I = np.swapaxes(I, src_dim, tgt_dim - 1)
@@ -169,15 +166,11 @@ def _electron_transfer(I, src_dim, tgt_dim, a, b, c, d, A, B, C, D) -> None:
     for all 0 <= j < I.shape[tgt_dim] and 0 <= i < I.shape[src_dim] - j.
     where
     """
-    print("Electron transfer")
-
     # Substitute 0 in the last len(I.shape) - tgt_dim - 1 dimensions.
     I = I[(...,) + (0,) * (len(I.shape) - tgt_dim - 1)]
-    print("after 0 sub. I.shape: ", I.shape)
 
     # Swap src_dim with tgt_dim - 1.
     I = np.swapaxes(I, src_dim, tgt_dim - 1)
-    print("after swap. I.shape: ", I.shape)
 
     src_size = I.shape[-2]
     tgt_size = I.shape[-1]
@@ -187,8 +180,6 @@ def _electron_transfer(I, src_dim, tgt_dim, a, b, c, d, A, B, C, D) -> None:
     i_array = np.arange(src_size).reshape(
         (1,) * (len(I.shape) - 2) + (src_size,)
     )
-
-    print("i_array shape: ", i_array.shape)
 
     # Precompute some coefficients in the recursion formula.
     p = a + b
@@ -264,7 +255,10 @@ def one_electron(
     for i in range(3):
         _horizontal_transfer(I, i, i + 3, A[i], B[i])
 
-    return I[: g1.max_degree + 1, : g1.max_degree + 1, : g1.max_degree + 1, ...]
+        # Remove the padding that is no longer needed.
+        I = I[(slice(0, g1.max_degree + 1),) * (i + 1) + (Ellipsis,)]
+
+    return I
 
 
 def two_electron(
@@ -332,24 +326,26 @@ def two_electron(
     a, b, c, d = g1.exponent, g2.exponent, g3.exponent, g4.exponent
 
     for i in range(3):
-        print(f"electron transfer {i} -> {i+3}")
         _electron_transfer(I, i, i + 3, a, b, c, d, A[i], B[i], C[i], D[i])
+        I = I[
+            (slice(0, g1.max_degree + g2.max_degree + 1),) * (i + 1)
+            + (Ellipsis,)
+        ]
 
     for i in range(3):
-        print(f"horizontal transfer {i} -> {i+6}")
         _horizontal_transfer(I, i, i + 6, A[i], B[i])
+        I = I[(slice(0, g1.max_degree + 1),) * (i + 1) + (Ellipsis,)]
 
     for i in range(3):
-        print(f"horizontal transfer {i+3} -> {i+9}")
         _horizontal_transfer(I, i + 3, i + 9, C[i], D[i])
+        I = I[
+            (slice(0, g1.max_degree + 1),) * 3
+            + (slice(0, g3.max_degree + 1),) * (i + 1)
+            + (Ellipsis,)
+        ]
 
     # Reorder the axes from g1, g3, g2, g4 to g1, g2, g3, g4
     I = np.moveaxis(I, [3, 4, 5], [6, 7, 8])
 
     # Remove the padding.
-    return I[
-        (slice(0, g1.max_degree + 1),) * 3
-        + (slice(0, g2.max_degree + 1),) * 3
-        + (slice(0, g3.max_degree + 1),) * 3
-        + (slice(0, g4.max_degree + 1),) * 3
-    ]
+    return I

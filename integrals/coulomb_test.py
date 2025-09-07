@@ -56,12 +56,12 @@ _BOYS_TEST_CASES = [
 # >>> b, B = g2.exponent, g2.center
 # >>>
 # >>> def f(z,y,x):
-# >>>   G1 = (x - A[0])**coords[0] * (y - A[1])**coords[1] * (z - A[2])**coords[2] *\
-# >>>       np.exp(-a * ((x - A[0])**2 + (y - A[1])**2 + (z - A[2])**2))
-# >>>   G2 = (x - B[0])**coords[3] * (y - B[1])**coords[4] * (z - B[2])**coords[5] *\
-# >>>   np.exp(-b * ((x - B[0])**2 + (y - B[1])**2 + (z - B[2])**2))
-# >>>   dist = np.sqrt((x - C[0])**2 + (y - C[1])**2 + (z - C[2])**2)
-# >>>   return G1 * G2 / dist
+# >>>.  r = np.array([x, y, z])
+# >>>   Ga = np.prod(np.power(r - A), coords[:3]) * np.exp(-a * np.sum(np.square(r - A)))
+# >>>   Gb = np.prod(np.power(r - B), coords[3:]) * np.exp(-b * np.sum(np.square(r - B)))
+# >>>   dist = np.sqrt(np.sum(np.square(r - C)))
+# >>>   return Ga * Gb / dist
+# >>>
 # >>> expected, _ = integrate.nquad(f, -6, 6, -6, 6, -6, 6)
 _ONE_ELECTRON_TEST_CASES = [
     OneElectronTestCase(
@@ -93,26 +93,26 @@ _ONE_ELECTRON_TEST_CASES = [
 _TWO_ELECTRON_TEST_CASES = [
     TwoElectronTestCase(
         g1=gaussian.GaussianBasis3d(
-            max_degree=2,
+            max_degree=3,
             exponent=0.1,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
         g2=gaussian.GaussianBasis3d(
-            max_degree=2,
+            max_degree=3,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
         ),
         g3=gaussian.GaussianBasis3d(
-            max_degree=2,
+            max_degree=3,
             exponent=0.3,
             center=np.array([2.0, 1.0, -1.0]),
         ),
         g4=gaussian.GaussianBasis3d(
-            max_degree=2,
+            max_degree=3,
             exponent=0.4,
             center=np.array([0.0, -1.0, 2.0]),
         ),
-        expected_shape=(3,) * 12,
+        expected_shape=(4,) * 3 + (4,) * 3 + (4,) * 3 + (4,) * 3,
         expected_values={
             (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 2.2635736015604326,
             (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 4.887010985110651,
@@ -128,6 +128,10 @@ _TWO_ELECTRON_TEST_CASES = [
             (0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1): -1.2763270734987182,
             (1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1): -0.046193719169573925,
             (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2): 1576.673145693577,
+            (2, 2, 2, 2, 2, 2, 3, 3, 3, 2, 2, 2): 5427.387516288171,
+            (3, 1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1): 23.518344046935226,
+            (1, 1, 3, 1, 1, 3, 1, 1, 3, 1, 1, 3): 5.799232648942781,
+            (1, 2, 3, 3, 1, 2, 2, 3, 1, 2, 1, 3): 102.32862546152272,
         },
     ),
 ]
