@@ -1,6 +1,7 @@
 import numpy as np
 
 from integrals import gaussian
+from integrals import overlap
 
 
 def kinetic_1d_from_overlap_1d(
@@ -63,7 +64,7 @@ def kinetic_3d_from_overlap_1d(
 
     where g1_x, g1_y, g1_z are the 1d Gaussian basis functions corresponding to
     g1 and similarly for g2.
-    
+
     Set
     d1 = g1.max_degree, d2 = g2.max_degree
     a = g1.exponent, b = g2.exponent
@@ -115,3 +116,37 @@ def kinetic_3d_from_overlap_1d(
     T += np.einsum("ad,be,cf->abcdef", S_x[:, :-2], S_y[:, :-2], T_z)
 
     return T
+
+
+def kinetic_3d(
+    g1: gaussian.GaussianBasis3d, g2: gaussian.GaussianBasis3d
+) -> np.ndarray:
+    """Computes the 3D Kinetic Energy matrix.
+
+    This acts as a wrapper around the `kinetic_3d_from_overlap_1d` kernel.
+    It bumps up the g2 basis by +2 angular momentum so that
+    the output has the correct shape (d2 + 1).
+
+    The output is an an array with shape
+    (d1+1, d1+1, d1+1, d2+1, d2+1, d2+1)
+    """
+
+    # Increase the degree of g2 by +2
+    # We need this because the kinetic operator involves 2nd derivatives,
+    # so we need overlaps of higher angular momentum to resolve it.
+    g2_boosted = gaussian.GaussianBasis3d(
+        max_degree=g2.max_degree + 2, exponent=g2.exponent, center=g2.center
+    )
+
+    # Compute 1D Overlaps using the boosted g2
+    # Shape: (d1+1, d2+3)
+    g1x, g1y, g1z = [gaussian.gaussian_3d_to_1d(g1, i) for i in range(3)]
+    g2x, g2y, g2z = [
+        gaussian.gaussian_3d_to_1d(g2_boosted, i) for i in range(3)
+    ]
+
+    S_x = overlap.overlap_1d(g1x, g2x)
+    S_y = overlap.overlap_1d(g1y, g2y)
+    S_z = overlap.overlap_1d(g1z, g2z)
+
+    return kinetic_3d_from_overlap_1d(S_x, S_y, S_z, g1, g2_boosted)
