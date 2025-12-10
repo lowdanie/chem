@@ -46,7 +46,7 @@ def scf(
     energy = 0.0
 
     for iteration in range(max_iterations):
-        # Compute the Fock matrix.s
+        # Compute the Fock matrix.
         G = fock.fock_two_electron_matrix(mol_basis, P)
         F = H_core + G
 

@@ -14,6 +14,7 @@ class MolecularBasis:
     basis_blocks: list[basis_block.BasisBlock]
 
     # The start and end indices of each basis block in the full basis set.
+    # length: len(basis_blocks)
     block_slices: list[slice]
 
     @property
