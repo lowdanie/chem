@@ -41,6 +41,16 @@ class BasisBlock:
     # shape (N_basis, N_cart)
     basis_transform: np.ndarray
 
+    @property
+    def n_cart(self) -> int:
+        """The number of Cartesian basis functions in this block."""
+        return self.cartesian_powers.shape[0]
+
+    @property
+    def n_basis(self) -> int:
+        """The number of basis functions in this block."""
+        return self.basis_transform.shape[0]
+
 
 def _normalize_contraction_matrix(
     exponents: np.ndarray,

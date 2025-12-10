@@ -1,0 +1,54 @@
+import dataclasses
+
+import numpy as np
+
+from structure import atom
+from structure import molecule
+from basis import basis_block
+from basis import bse_adapter
+
+
+@dataclasses.dataclass
+class MolecularBasis:
+    atoms: list[atom.Atom]
+    basis_blocks: list[basis_block.BasisBlock]
+
+    # The start and end indices of each basis block in the full basis set.
+    block_slices: list[slice]
+
+    @property
+    def n_basis(self) -> int:
+        """The total number of basis functions in this molecular basis."""
+        return sum(block.n_basis for block in self.basis_blocks)
+
+    @property
+    def n_electrons(self) -> int:
+        """The total number of electrons in the molecule."""
+        return sum(atom.number for atom in self.atoms)
+
+
+def build_molecular_basis(
+    molecule: molecule.Molecule, basis_name: str
+) -> MolecularBasis:
+    basis_blocks = []
+    for atom in molecule.atoms:
+        contracted_gtos = bse_adapter.load(basis_name, atom.number)
+        basis_blocks.extend(
+            basis_block.build_basis_block(gto, atom.position)
+            for gto in contracted_gtos
+        )
+
+    block_sizes = np.array(
+        [block.n_basis for block in basis_blocks], dtype=np.int32
+    )
+    block_starts = np.concatenate(([0], np.cumsum(block_sizes)))
+    block_slices = [
+        slice(start, start + size)
+        for start, size in zip(block_starts, block_sizes)
+    ]
+
+    return MolecularBasis(
+        atoms=molecule.atoms,
+        basis_blocks=basis_blocks,
+        block_slices=block_slices,
+    )

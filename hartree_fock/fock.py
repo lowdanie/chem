@@ -1,74 +1,71 @@
-import dataclasses
-
 import numpy as np
 
-from integrals import gaussian
+from basis import operators
+from integrals import coulomb
+from hartree_fock import quartet as quartet_lib
+from structure import molecular_basis
 
 
-@dataclasses.dataclass
-class MonomialBasis:
-    """A monomial basis in variables x, y, z up to a given degree.
+def _scatter_integral_block(
+    G: np.ndarray,
+    P: np.ndarray,
+    integral_block: np.ndarray,
+    quartet: quartet_lib.Quartet,
+    mol_basis: molecular_basis.MolecularBasis,
+) -> None:
+    slices = mol_basis.block_slices
 
-    The number of monomials in 3 variables up to degree d is:
-    (d + 3 choose 3)
-    """
+    for sigma in quartet_lib.generate_permutations(quartet):
+        # Permute the quartet and store the resulting indices.
+        i, j, k, l = quartet_lib.apply_permutation(sigma, quartet)
 
-    max_degree: int
+        # Compute the two-electron integral block (ij|kl)
+        ints = integral_block.transpose(sigma)
 
-    # Each array has shape (((d + 3) choose 3),)
-    # The monomials in the basis are:
-    # x^indices[0][i] * y^indices[1][i] * z^indices[2][i]
-    # for 0 <= i < (d + 3 choose 3)
-    indices: tuple[np.ndarray, np.ndarray, np.ndarray]
+        # Add the Coulomb term.
+        # G_ij += (ij|kl)*P_lk
+        P_lk = P[slices[l], slices[k]]
+        G[slices[i], slices[j]] += np.einsum("ijkl,lk->ij", ints, P_lk)
 
-    def size(self) -> int:
-        return self.indices[0].shape[0]
+        # Add the exchange term.
+        # G_il -= 0.5 * (ij|kl) * P_jk
+        P_jk = P[slices[j], slices[k]]
+        G[slices[i], slices[l]] -= 0.5 * np.einsum("ijkl,jk->il", ints, P_jk)
 
-def compress(
-    coeffs: np.ndarray, basis: MonomialBasis
+
+def fock_two_electron_matrix(
+    mol_basis: molecular_basis.MolecularBasis,
+    P: np.ndarray,
 ) -> np.ndarray:
-    """Compress a 3D array of monomial coefficients to a 1D array.
+    """Computes the two electron part of the Fock matrix.
+
+    The two-electron Fock matrix is given by:
+
+    G_{ij} = sum_{kl} P_{kl} ( (ij|lk) - 0.5 (ik|lj) )
+
+    where
+    (ij|kl) = integral psi_i(r1) psi_j(r1) 1/|r1-r2| psi_k(r2) psi_l(r2) dr1 dr2
 
     Args:
-        coeffs: A 3D array of shape (d+1, d+1, d+1) where d = basis.max_degree.
-        basis: The MonomialBasis defining which monomials to keep.
+        mol_basis: The molecular basis set.
+        P: The closed shell density matrix of shape (n_basis, n_basis)
     Returns:
-        A 1D array of shape (d + 3 choose 3) containing the coefficients
-        of the monomials in the basis. The output coeffs_1d satisfies:
-        coeffs_1d[i] = coeffs[indices[0][i], indices[1][i], indices[2][i]]
+        A numpy array of shape (n_basis, n_basis)
     """
-    return coeffs[basis.indices]
+    n_basis = mol_basis.n_basis
+    blocks = mol_basis.basis_blocks
+    G = np.zeros((n_basis, n_basis), dtype=np.float64)
 
-def decompress(
-    coeffs_1d: np.ndarray, basis: MonomialBasis
-) -> np.ndarray:
-    """Decompress a 1D array of monomial coefficients to a 3D array.
+    # Iterate over canonical quartets of basis blocks.
+    for quartet in quartet_lib.iter_canonical_quartets(len(blocks)):
+        i, j, k, l = quartet
 
-    Args:
-        coeffs_1d: A 1D array of shape (d + 3 choose 3) where d = basis.max_degree.
-        basis: The MonomialBasis defining which monomials to keep.
-    Returns:
-        A 3D array of shape (d+1, d+1, d+1) containing the coefficients
-        of all monomials up to degree d. The output coeffs satisfies:
-        coeffs[indices[0][i], indices[1][i], indices[2][i]] = coeffs_1d[i]
-    """
-    d = basis.max_degree
-    coeffs = np.zeros((d + 1, d + 1, d + 1), dtype=coeffs_1d.dtype)
-    coeffs[basis.indices] = coeffs_1d
-    return coeffs
+        # Compute the integral block (ij|kl)
+        integral_block = operators.two_electron_matrix(
+            blocks[i], blocks[j], blocks[k], blocks[l], coulomb.two_electron
+        )
 
+        # Scatter it to the full G matrix.
+        _scatter_integral_block(G, P, integral_block, quartet, mol_basis)
 
-# Suppose we are using a basis with N GaussianBasis3d object
-# G1, G2, ..., GN.
-# The overlap array S is a two dimensional array of shape (N, N).
-# For each pair of basis functions (Gi, Gj), S[i,j] is a 6D array of shape
-# (Gi.max_degree + 1,)*3 + (Gj.max_degree + 1,)*3.
-#
-OverlapArray = np.ndarray
-
-
-def compute_overlap_array(
-    basis: list[gaussian.GaussianBasis3d],
-) -> OverlapArray:
-    N = len(basis)
-    S = np.empty((N, N), dtype=object)
+    return G
