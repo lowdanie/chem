@@ -1,5 +1,4 @@
 import numpy as np
-from unittest import mock
 
 from basis import contracted_gto
 from structure import atom
@@ -13,8 +12,7 @@ def _assert_atoms_equal(atom1: atom.Atom, atom2: atom.Atom):
     np.testing.assert_array_almost_equal(atom1.position, atom2.position)
 
 
-@mock.patch("basis.bse_adapter.load")
-def test_build_molecular_basis(mock_bse_load):
+def test_build_molecular_basis():
     mol = molecule.Molecule(
         atoms=[
             atom.Atom(
@@ -29,34 +27,33 @@ def test_build_molecular_basis(mock_bse_load):
             ),
         ]
     )
-    basis_name = "sto-3g"
 
-    contracted_gtos_H = [
-        contracted_gto.ContractedGTO(
-            primitive_type=contracted_gto.PrimitiveType.CARTESIAN,
-            angular_momentum=(0,),
-            exponents=np.array([1.0]),
-            coefficients=np.array([[1.0]]),
-        )
-    ]
+    gtos = {
+        1: [
+            contracted_gto.ContractedGTO(
+                primitive_type=contracted_gto.PrimitiveType.CARTESIAN,
+                angular_momentum=(0,),
+                exponents=np.array([1.0]),
+                coefficients=np.array([[1.0]]),
+            )
+        ],
+        8: [
+            contracted_gto.ContractedGTO(
+                primitive_type=contracted_gto.PrimitiveType.CARTESIAN,
+                angular_momentum=(0,),
+                exponents=np.array([2.0]),
+                coefficients=np.array([[1.0]]),
+            ),
+            contracted_gto.ContractedGTO(
+                primitive_type=contracted_gto.PrimitiveType.CARTESIAN,
+                angular_momentum=(0,),
+                exponents=np.array([3.0]),
+                coefficients=np.array([[1.0]]),
+            ),
+        ],
+    }
 
-    contracted_gtos_O = [
-        contracted_gto.ContractedGTO(
-            primitive_type=contracted_gto.PrimitiveType.CARTESIAN,
-            angular_momentum=(0,),
-            exponents=np.array([2.0]),
-            coefficients=np.array([[1.0]]),
-        ),
-        contracted_gto.ContractedGTO(
-            primitive_type=contracted_gto.PrimitiveType.CARTESIAN,
-            angular_momentum=(0,),
-            exponents=np.array([3.0]),
-            coefficients=np.array([[1.0]]),
-        ),
-    ]
-    mock_bse_load.side_effect = [contracted_gtos_H, contracted_gtos_O]
-
-    mol_basis = molecular_basis.build_molecular_basis(mol, basis_name)
+    mol_basis = molecular_basis.build(mol, basis_fetcher=lambda n: gtos[n])
 
     assert len(mol_basis.atoms) == 2
     _assert_atoms_equal(mol_basis.atoms[0], mol.atoms[0])

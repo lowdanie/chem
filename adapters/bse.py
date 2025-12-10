@@ -11,7 +11,7 @@ _STR_TO_PRIMITIVE_TYPE = {
 
 
 def load(basis_name: str, element: int) -> list[contracted_gto.ContractedGTO]:
-    """Loads a contracted GTO for a given element from the Basis Set Exchange."""
+    """Loads contracted GTOs for a given element from the Basis Set Exchange."""
     bse_data = bse.get_basis(basis_name, elements=[element])
     electron_shells = bse_data["elements"][str(element)]["electron_shells"]
 

@@ -1,11 +1,17 @@
 import dataclasses
+from typing import Callable
+from collections.abc import Sequence
 
 import numpy as np
 
 from structure import atom
 from structure import molecule
 from basis import basis_block
-from basis import bse_adapter
+from basis import contracted_gto
+from adapters import bse
+
+# Fetches a list of contracted GTOs for a given atomic number.
+BasisFetcher = Callable[[int], Sequence[contracted_gto.ContractedGTO]]
 
 
 @dataclasses.dataclass
@@ -28,12 +34,12 @@ class MolecularBasis:
         return sum(atom.number for atom in self.atoms)
 
 
-def build_molecular_basis(
-    molecule: molecule.Molecule, basis_name: str
+def build(
+    molecule: molecule.Molecule, basis_fetcher: BasisFetcher
 ) -> MolecularBasis:
     basis_blocks = []
     for atom in molecule.atoms:
-        contracted_gtos = bse_adapter.load(basis_name, atom.number)
+        contracted_gtos = basis_fetcher(atom.number)
         basis_blocks.extend(
             basis_block.build_basis_block(gto, atom.position)
             for gto in contracted_gtos

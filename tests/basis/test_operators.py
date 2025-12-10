@@ -5,7 +5,7 @@ import numpy as np
 
 from basis import basis_block
 from basis import operators
-from basis import bse_adapter
+from adapters import bse
 from integrals import overlap
 from integrals import kinetic
 from integrals import coulomb
@@ -570,7 +570,7 @@ def test_two_electron_matrix(case):
     ],
 )
 def test_bse_identity(basis_name, element):
-    gtos = bse_adapter.load(basis_name, element)
+    gtos = bse.load(basis_name, element)
     center = np.array([0.0, 1.0, 2.0])
 
     for gto in gtos:

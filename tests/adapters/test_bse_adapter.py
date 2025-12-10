@@ -3,7 +3,7 @@ import pytest
 
 import numpy as np
 
-from basis import bse_adapter
+from adapters import bse
 from basis import contracted_gto
 
 
@@ -70,7 +70,7 @@ _TEST_CASES = [
 
 @pytest.mark.parametrize("case", _TEST_CASES)
 def test_load(case: _TEST_CASE):
-    actual_gtos = bse_adapter.load(case.basis_name, case.element)
+    actual_gtos = bse.load(case.basis_name, case.element)
 
     assert len(actual_gtos) == len(case.expected_gtos), (
         f"Number of GTOS mismatch for basis {case.basis_name}, element {case.element}. "

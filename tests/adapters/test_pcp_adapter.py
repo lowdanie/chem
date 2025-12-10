@@ -7,7 +7,7 @@ import numpy as np
 
 from structure import atom
 from structure import molecule
-from structure import pcp_adaptor
+from adapters import pubchem
 from structure import units
 
 
@@ -82,7 +82,7 @@ def test_load_molecule(case):
         for atom_data in case.atom_data
     ]
 
-    loaded_molecule = pcp_adaptor.load_molecule(mock_compound)
+    loaded_molecule = pubchem.load_molecule(mock_compound)
     assert len(loaded_molecule.atoms) == len(case.expected_molecule.atoms)
     for loaded_atom, expected_atom in zip(
         loaded_molecule.atoms, case.expected_molecule.atoms
@@ -95,4 +95,4 @@ def test_load_molecule_invalid_coordinate_type():
     mock_compound.coordinate_type = "2d"  # Invalid coordinate type
 
     with pytest.raises(ValueError, match="Compound must have 3D coordinates."):
-        pcp_adaptor.load_molecule(mock_compound)
+        pubchem.load_molecule(mock_compound)
