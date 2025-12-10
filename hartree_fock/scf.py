@@ -47,7 +47,7 @@ def scf(
 
     for iteration in range(max_iterations):
         # Compute the Fock matrix.
-        G = fock.fock_two_electron_matrix(mol_basis, P)
+        G = fock.two_electron_matrix(mol_basis, P)
         F = H_core + G
 
         # Solve for new orbital coefficients.
@@ -58,7 +58,7 @@ def scf(
 
         delta_P = np.linalg.norm(P_new - P)
         P = P_new
-        energy = fock.electronic_energy(F, P)
+        energy = fock.electronic_energy(H_core, F, P)
 
         print(
             f"Iteration {iteration}: Electronic Energy = {energy:.10f} "

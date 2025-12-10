@@ -608,54 +608,59 @@ def test_kinetic_symmetry():
 
 
 def test_two_electron_coulomb_symmetry():
-    block1 = basis_block.BasisBlock(
-        center=np.array([0.0, 0.0, 1.0]),
-        exponents=np.array([0.1, 0.2]),
-        cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
-        contraction_matrix=np.array([[0.6, 0.4], [0.3, 0.7]]),
-        basis_transform=np.eye(2),
+    blocks = [
+        basis_block.BasisBlock(
+            center=np.array([0.0, 0.0, 1.0]),
+            exponents=np.array([0.1, 0.2]),
+            cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
+            contraction_matrix=np.array([[0.6, 0.4], [0.3, 0.7]]),
+            basis_transform=np.eye(2),
+        ),
+        basis_block.BasisBlock(
+            center=np.array([1.0, 0.0, 1.0]),
+            exponents=np.array([0.3, 0.4]),
+            cartesian_powers=np.array([[0, 0, 0], [0, 1, 0]]),
+            contraction_matrix=np.array([[0.5, 0.3], [0.1, 0.2]]),
+            basis_transform=np.eye(2),
+        ),
+        basis_block.BasisBlock(
+            center=np.array([0.0, 1.0, 0.0]),
+            exponents=np.array([0.5, 0.6]),
+            cartesian_powers=np.array([[0, 0, 0], [0, 0, 1]]),
+            contraction_matrix=np.array([[0.4, 0.2], [0.3, 0.1]]),
+            basis_transform=np.eye(2),
+        ),
+        basis_block.BasisBlock(
+            center=np.array([1.0, 1.0, 0.0]),
+            exponents=np.array([0.7, 0.8]),
+            cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
+            contraction_matrix=np.array([[0.9, 0.5], [0.6, 0.4]]),
+            basis_transform=np.eye(2),
+        ),
+    ]
+
+    permutations = [
+        (1, 0, 2, 3),  #               (i,j)
+        (0, 1, 3, 2),  #          (k,l)
+        (1, 0, 3, 2),  #          (k,l)(i,j)
+        (2, 3, 0, 1),  # (k,l,i,j)
+        (2, 3, 1, 0),  # (k,l,i,j)     (i,j)
+        (3, 2, 0, 1),  # (k,l,i,j)(k,l)
+        (3, 2, 1, 0),  # (k,l,i,j)(k,l)(i,j)
+    ]
+    V = operators.two_electron_matrix(
+        blocks[0], blocks[1], blocks[2], blocks[3], coulomb.two_electron
     )
 
-    block2 = basis_block.BasisBlock(
-        center=np.array([1.0, 0.0, 1.0]),
-        exponents=np.array([0.3, 0.4]),
-        cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
-        contraction_matrix=np.array([[0.5, 0.3], [0.1, 0.2]]),
-        basis_transform=np.eye(2),
-    )
-
-    block3 = basis_block.BasisBlock(
-        center=np.array([0.0, 1.0, 0.0]),
-        exponents=np.array([0.5, 0.6]),
-        cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
-        contraction_matrix=np.array([[0.4, 0.2], [0.3, 0.1]]),
-        basis_transform=np.eye(2),
-    )
-
-    block4 = basis_block.BasisBlock(
-        center=np.array([1.0, 1.0, 0.0]),
-        exponents=np.array([0.7, 0.8]),
-        cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
-        contraction_matrix=np.array([[0.9, 0.5], [0.6, 0.4]]),
-        basis_transform=np.eye(2),
-    )
-
-    V1 = operators.two_electron_matrix(
-        block1, block2, block3, block4, coulomb.two_electron
-    )
-    V2 = operators.two_electron_matrix(
-        block2, block1, block3, block4, coulomb.two_electron
-    )
-    V3 = operators.two_electron_matrix(
-        block1, block2, block4, block3, coulomb.two_electron
-    )
-    V4 = operators.two_electron_matrix(
-        block3, block4, block1, block2, coulomb.two_electron
-    )
-
-    # (12|34) = (21|34) = (12|43) = (34|12)
-    np.testing.assert_allclose(V1, np.swapaxes(V2, 0, 1), rtol=1e-8, atol=1e-8)
-    np.testing.assert_allclose(V1, np.swapaxes(V3, 2, 3), rtol=1e-8, atol=1e-8)
-    np.testing.assert_allclose(
-        V1, V4.transpose(2, 3, 0, 1), rtol=1e-8, atol=1e-8
-    )
+    for sigma in permutations:
+        print("sigma: ", sigma)
+        V_perm = operators.two_electron_matrix(
+            blocks[sigma[0]],
+            blocks[sigma[1]],
+            blocks[sigma[2]],
+            blocks[sigma[3]],
+            coulomb.two_electron,
+        )
+        np.testing.assert_allclose(
+            V.transpose(sigma), V_perm, rtol=1e-8, atol=1e-8
+        )

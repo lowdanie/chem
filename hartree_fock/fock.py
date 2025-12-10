@@ -33,7 +33,7 @@ def _scatter_integral_block(
         G[slices[i], slices[l]] -= 0.5 * np.einsum("ijkl,jk->il", ints, P_jk)
 
 
-def fock_two_electron_matrix(
+def two_electron_matrix(
     mol_basis: molecular_basis.MolecularBasis,
     P: np.ndarray,
 ) -> np.ndarray:
@@ -69,3 +69,18 @@ def fock_two_electron_matrix(
         _scatter_integral_block(G, P, integral_block, quartet, mol_basis)
 
     return G
+
+
+def electronic_energy(
+    H_core: np.ndarray, F: np.ndarray, P: np.ndarray
+) -> float:
+    """Compute the electronic energy from the Fock and density matrices.
+
+    E = 0.5 * sum_{ij}P_ij(H_core_ji + F_ji)
+
+    Args:
+        H_core: The core Hamiltonian matrix. shape: (n_basis, n_basis)
+        F: The core Fock matrix. shape: (n_basis, n_basis)
+        P: The closed shell density matrix. shape: (n_basis, n_basis)
+    """
+    return 0.5 * np.einsum("ij,ji", P, H_core + F)

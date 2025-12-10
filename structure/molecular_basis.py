@@ -8,7 +8,6 @@ from structure import atom
 from structure import molecule
 from basis import basis_block
 from basis import contracted_gto
-from adapters import bse
 
 # Fetches a list of contracted GTOs for a given atomic number.
 BasisFetcher = Callable[[int], Sequence[contracted_gto.ContractedGTO]]
