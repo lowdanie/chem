@@ -75,6 +75,9 @@ class _BuildBasisBlockTestCase:
 )
 def test_build_basis_block(case):
     result = basis_block.build_basis_block(case.gto, case.center)
+    assert result.n_basis == case.expected.n_basis
+    assert result.n_cart == case.expected.n_cart
+
     np.testing.assert_allclose(
         result.center,
         case.expected.center,
@@ -99,3 +102,40 @@ def test_build_basis_block(case):
         case.expected.basis_transform,
         rtol=1e-7,
     )
+
+
+def test_build_basis_block_unsupported_primitive():
+    gto = contracted_gto.ContractedGTO(
+        primitive_type=contracted_gto.PrimitiveType.SPHERICAL,
+        angular_momentum=(0,),
+        exponents=np.array([0.1], dtype=np.float64),
+        coefficients=np.array([[1.0]], dtype=np.float64),
+    )
+    center = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+
+    with pytest.raises(NotImplementedError):
+        basis_block.build_basis_block(gto, center)
+
+
+def test_n_basis():
+    block = basis_block.BasisBlock(
+        center=np.array([0.0, 0.0, 0.0]),
+        exponents=np.array([0.1], dtype=np.float64),
+        cartesian_powers=np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]]),
+        contraction_matrix=np.array([[1.0], [0.5], [0.1]], dtype=np.float64),
+        basis_transform=np.ones((2, 3), dtype=np.float64),
+    )
+
+    assert block.n_basis == 2
+
+
+def test_n_cart():
+    block = basis_block.BasisBlock(
+        center=np.array([0.0, 0.0, 0.0]),
+        exponents=np.array([0.1], dtype=np.float64),
+        cartesian_powers=np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]]),
+        contraction_matrix=np.array([[1.0], [0.5], [0.1]], dtype=np.float64),
+        basis_transform=np.ones((2, 3), dtype=np.float64),
+    )
+
+    assert block.n_cart == 3

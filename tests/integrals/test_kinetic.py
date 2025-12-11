@@ -86,6 +86,15 @@ def test_kinetic_1d_from_overlap_1d(case):
     np.testing.assert_allclose(T, case.expected, atol=1e-7)
 
 
+def test_kinetic_1d_from_overlap_1d_invalid_shape():
+    S = np.zeros((1, 3), dtype=np.float64)
+    g1 = gaussian.GaussianBasis1d(max_degree=1, exponent=0.5, center=0.0)
+    g2 = gaussian.GaussianBasis1d(max_degree=2, exponent=0.5, center=0.0)
+
+    with pytest.raises(ValueError):
+        kinetic.kinetic_1d_from_overlap_1d(S, g1, g2)
+
+
 # The expected values were computed using sympy.
 # For a given array of coord of shape (6,), we compute the integral:
 # import sympy as sp

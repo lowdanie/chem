@@ -93,7 +93,7 @@ def test_H2():
         decimal=4,
     )
 
-
+@pytest.mark.slow
 def test_H2O():
     mol_basis = molecular_basis.build(_H20_MOLECULE, _basis_fetcher)
 
