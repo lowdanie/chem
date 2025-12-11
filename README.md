@@ -31,13 +31,14 @@ mol = pubchem.load_molecule(compound)
 mol_basis = molecular_basis.build(
     mol, basis_fetcher=lambda n: bse.load("sto-3g", n))
 
-def callback(s: scf.State) -> None:
+# Callback to log progress.
+def logger(s: scf.State) -> None:
     print(f'Iteration {s.iteration}: '
           f'Electronic Energy = {s.electronic_energy}, '
           f'Delta P = {s.delta_P}')
 
 # Run SCF to solve for the electronic energy.
-result = scf.solve(mol_basis, scf.Options(callback=callback))
+result = scf.solve(mol_basis, scf.Options(callback=logger))
 print(f"Electronic Energy: {result.electronic_energy} H")
 ```
 
