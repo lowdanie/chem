@@ -14,7 +14,7 @@ and [pubchem](https://pubchem.ncbi.nlm.nih.gov/).
 Here is an example which loads water molecule geometry from pubchem and computes the electronic energy using the STO-3G basis set.
 
 
-```
+```python
 import pubchempy as pcp
 
 from chem.adapters import pubchem
