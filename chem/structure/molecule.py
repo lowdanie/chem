@@ -2,7 +2,7 @@ import dataclasses
 
 import numpy as np
 
-from structure import atom
+from chem.structure import atom
 
 
 @dataclasses.dataclass

@@ -4,10 +4,10 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from structure import atom
-from structure import molecule
-from basis import basis_block
-from basis import contracted_gto
+from chem.structure import atom
+from chem.structure import molecule
+from chem.basis import basis_block
+from chem.basis import contracted_gto
 
 # Fetches a list of contracted GTOs for a given atomic number.
 BasisFetcher = Callable[[int], Sequence[contracted_gto.ContractedGTO]]

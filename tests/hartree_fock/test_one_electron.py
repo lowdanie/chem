@@ -2,17 +2,17 @@ import pytest
 
 import numpy as np
 
-from adapters import bse
-from basis import basis_block
-from basis import contracted_gto
-from basis import operators
-from hartree_fock import one_electron
-from integrals import overlap
-from integrals import kinetic
-from integrals import coulomb
-from structure import atom
-from structure import molecule
-from structure import molecular_basis
+from chem.adapters import bse
+from chem.basis import basis_block
+from chem.basis import contracted_gto
+from chem.basis import operators
+from chem.hartree_fock import one_electron
+from chem.integrals import overlap
+from chem.integrals import kinetic
+from chem.integrals import coulomb
+from chem.structure import atom
+from chem.structure import molecule
+from chem.structure import molecular_basis
 
 _TEST_ATOMS = [
     atom.Atom(

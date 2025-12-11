@@ -3,7 +3,7 @@ import pytest
 
 import numpy as np
 
-from hartree_fock import roothaan
+from chem.hartree_fock import roothaan
 
 
 @dataclasses.dataclass

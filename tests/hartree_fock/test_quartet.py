@@ -1,6 +1,6 @@
 import pytest
 
-from hartree_fock import quartet as quartet_lib
+from chem.hartree_fock import quartet as quartet_lib
 
 
 @pytest.mark.parametrize(

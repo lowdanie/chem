@@ -3,8 +3,8 @@ from typing import Callable
 
 import numpy as np
 
-from basis import contracted_gto
-from basis import cartesian
+from chem.basis import contracted_gto
+from chem.basis import cartesian
 
 
 @dataclasses.dataclass

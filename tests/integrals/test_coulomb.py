@@ -3,8 +3,8 @@ import pytest
 
 import numpy as np
 
-from integrals import coulomb
-from integrals import gaussian
+from chem.integrals import coulomb
+from chem.integrals import gaussian
 
 
 @dataclasses.dataclass

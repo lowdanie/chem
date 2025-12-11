@@ -1,6 +1,6 @@
 import numpy as np
 
-from integrals import gaussian
+from chem.integrals import gaussian
 
 
 def _overlap_1d_base_case(

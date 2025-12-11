@@ -3,8 +3,8 @@ import pytest
 
 import numpy as np
 
-from adapters import bse
-from basis import contracted_gto
+from chem.adapters import bse
+from chem.basis import contracted_gto
 
 
 @dataclasses.dataclass

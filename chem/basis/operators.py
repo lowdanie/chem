@@ -4,8 +4,8 @@ from typing import Callable
 
 import numpy as np
 
-from basis import basis_block
-from integrals import gaussian
+from chem.basis import basis_block
+from chem.integrals import gaussian
 
 # A one-electron operator between two BasisBlocks.
 # The returned array has shape (d1+1, d1+1, d1+1, d2+1, d2+1, d2+1)

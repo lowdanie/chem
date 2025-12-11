@@ -14,6 +14,6 @@ markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 addopts = "-m 'not slow'"
 
 [tool.coverage.run]
-source = ["adapters", "basis", "hartree_fock", "integrals", "structure"]
+source = ["chem"]
 omit = ["tests/*"]
 branch = true

@@ -5,10 +5,10 @@ from unittest import mock
 
 import numpy as np
 
-from structure import atom
-from structure import molecule
-from adapters import pubchem
-from structure import units
+from chem.structure import atom
+from chem.structure import molecule
+from chem.adapters import pubchem
+from chem.structure import units
 
 
 @dataclasses.dataclass

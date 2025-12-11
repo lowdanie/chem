@@ -2,11 +2,11 @@ import dataclasses
 
 import numpy as np
 
-from hartree_fock import density
-from hartree_fock import fock
-from hartree_fock import one_electron
-from hartree_fock import roothaan
-from structure import molecular_basis
+from chem.hartree_fock import density
+from chem.hartree_fock import fock
+from chem.hartree_fock import one_electron
+from chem.hartree_fock import roothaan
+from chem.structure import molecular_basis
 
 
 @dataclasses.dataclass

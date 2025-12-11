@@ -1,7 +1,7 @@
 import numpy as np
 
-from integrals import gaussian
-from integrals import overlap
+from chem.integrals import gaussian
+from chem.integrals import overlap
 
 
 def kinetic_1d_from_overlap_1d(

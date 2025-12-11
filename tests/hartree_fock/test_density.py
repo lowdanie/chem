@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 
-from hartree_fock import density
+from chem.hartree_fock import density
 
 
 def test_closed_shell_matrix():

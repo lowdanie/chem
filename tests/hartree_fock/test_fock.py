@@ -1,14 +1,13 @@
 import itertools
-import pytest
 
 import numpy as np
 
-from basis import basis_block
-from basis import operators
-from integrals import coulomb
-from structure import atom
-from structure import molecular_basis
-from hartree_fock import fock
+from chem.basis import basis_block
+from chem.basis import operators
+from chem.integrals import coulomb
+from chem.structure import atom
+from chem.structure import molecular_basis
+from chem.hartree_fock import fock
 
 _TEST_ATOMS = [
     atom.Atom(

@@ -3,8 +3,8 @@ import pytest
 
 import numpy as np
 
-from integrals import gaussian
-from integrals import overlap
+from chem.integrals import gaussian
+from chem.integrals import overlap
 
 
 @dataclasses.dataclass

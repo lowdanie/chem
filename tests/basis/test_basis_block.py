@@ -3,8 +3,8 @@ import pytest
 
 import numpy as np
 
-from basis import basis_block
-from basis import contracted_gto
+from chem.basis import basis_block
+from chem.basis import contracted_gto
 
 
 @dataclasses.dataclass

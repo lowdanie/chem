@@ -3,7 +3,7 @@ import pytest
 
 import numpy as np
 
-from basis import cartesian
+from chem.basis import cartesian
 
 
 @dataclasses.dataclass

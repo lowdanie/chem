@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import special
-from integrals import gaussian
+from chem.integrals import gaussian
 
 
 def boys(n, x):
