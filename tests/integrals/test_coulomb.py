@@ -50,20 +50,56 @@ _BOYS_TEST_CASES = [
 ]
 
 # The expected values were computed with scipy.integrate:
-# >>> import numpy as np
-# >>> from scipy import integrate
-# >>> a, A = g1.exponent, g1.center
-# >>> b, B = g2.exponent, g2.center
-# >>>
-# >>> def f(z,y,x):
-# >>>.  r = np.array([x, y, z])
-# >>>   Ga = np.prod(np.power(r - A), coords[:3]) * np.exp(-a * np.sum(np.square(r - A)))
-# >>>   Gb = np.prod(np.power(r - B), coords[3:]) * np.exp(-b * np.sum(np.square(r - B)))
-# >>>   dist = np.sqrt(np.sum(np.square(r - C)))
-# >>>   return Ga * Gb / dist
-# >>>
-# >>> expected, _ = integrate.nquad(f, -6, 6, -6, 6, -6, 6)
+#
+# import numpy as np
+# from scipy import integrate
+# a, A = g1.exponent, g1.center
+# b, B = g2.exponent, g2.center
+#
+# def f(z,y,x):
+#   r = np.array([x, y, z])
+#   Ga = np.prod(np.power(r - A), coords[:3]) * np.exp(-a * np.sum(np.square(r - A)))
+#   Gb = np.prod(np.power(r - B), coords[3:]) * np.exp(-b * np.sum(np.square(r - B)))
+#   dist = np.sqrt(np.sum(np.square(r - C)))
+#   return Ga * Gb / dist
+#
+# expected, _ = integrate.nquad(f, ranges=[[-6, 6]]*3)
 _ONE_ELECTRON_TEST_CASES = [
+    OneElectronTestCase(
+        g1=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.5,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        C=np.array([1.0, -1.0, 2.0]),
+        expected_shape=(1, 1, 1, 1, 1, 1),
+        expected_values={
+            (0, 0, 0, 0, 0, 0): 0.2714497857051819,
+        },
+    ),
+    OneElectronTestCase(
+        g1=gaussian.GaussianBasis3d(
+            max_degree=1,
+            exponent=0.5,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        C=np.array([1.0, -1.0, 2.0]),
+        expected_shape=(2, 2, 2, 1, 1, 1),
+        expected_values={
+            (0, 0, 0, 0, 0, 0): 0.2714497857051819,
+            (1, 1, 1, 0, 0, 0): -0.05968347568416298,
+        },
+    ),
     OneElectronTestCase(
         g1=gaussian.GaussianBasis3d(
             max_degree=2,
@@ -98,6 +134,140 @@ _ONE_ELECTRON_TEST_CASES = [
 # >>>    g3.center, 1, coords[6:9], g3.exponent,
 # >>>    g4.center, 1, coords[9:], g4.exponent)
 _TWO_ELECTRON_TEST_CASES = [
+    TwoElectronTestCase(
+        g1=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.1,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        g3=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.3,
+            center=np.array([2.0, 1.0, -1.0]),
+        ),
+        g4=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.4,
+            center=np.array([0.0, -1.0, 2.0]),
+        ),
+        expected_shape=(1,) * 3 + (1,) * 3 + (1,) * 3 + (1,) * 3,
+        expected_values={
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 2.2635736015604326,
+        },
+    ),
+    TwoElectronTestCase(
+        g1=gaussian.GaussianBasis3d(
+            max_degree=1,
+            exponent=0.1,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        g3=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.3,
+            center=np.array([2.0, 1.0, -1.0]),
+        ),
+        g4=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.4,
+            center=np.array([0.0, -1.0, 2.0]),
+        ),
+        expected_shape=(2,) * 3 + (1,) * 3 + (1,) * 3 + (1,) * 3,
+        expected_values={
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 2.2635736015604326,
+            (1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 4.887010985110651,
+        },
+    ),
+    TwoElectronTestCase(
+        g1=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.1,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=gaussian.GaussianBasis3d(
+            max_degree=1,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        g3=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.3,
+            center=np.array([2.0, 1.0, -1.0]),
+        ),
+        g4=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.4,
+            center=np.array([0.0, -1.0, 2.0]),
+        ),
+        expected_shape=(1,) * 3 + (2,) * 3 + (1,) * 3 + (1,) * 3,
+        expected_values={
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 2.2635736015604326,
+            (0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0): -1.9037098195706461,
+        },
+    ),
+    TwoElectronTestCase(
+        g1=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.1,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        g3=gaussian.GaussianBasis3d(
+            max_degree=1,
+            exponent=0.3,
+            center=np.array([2.0, 1.0, -1.0]),
+        ),
+        g4=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.4,
+            center=np.array([0.0, -1.0, 2.0]),
+        ),
+        expected_shape=(1,) * 3 + (1,) * 3 + (2,) * 3 + (1,) * 3,
+        expected_values={
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 2.2635736015604326,
+            (0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0): -2.741168594064688,
+        },
+    ),
+    TwoElectronTestCase(
+        g1=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.1,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        g3=gaussian.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.3,
+            center=np.array([2.0, 1.0, -1.0]),
+        ),
+        g4=gaussian.GaussianBasis3d(
+            max_degree=1,
+            exponent=0.4,
+            center=np.array([0.0, -1.0, 2.0]),
+        ),
+        expected_shape=(1,) * 3 + (1,) * 3 + (1,) * 3 + (2,) * 3,
+        expected_values={
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 2.2635736015604326,
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0): 1.7859786090561764,
+        },
+    ),
     TwoElectronTestCase(
         g1=gaussian.GaussianBasis3d(
             max_degree=3,

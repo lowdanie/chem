@@ -73,8 +73,8 @@ def two_electron_matrix(
 
 def electronic_energy(
     H_core: np.ndarray, F: np.ndarray, P: np.ndarray
-) -> float:
-    """Compute the electronic energy from the Fock and density matrices.
+) -> np.float64:
+    """Compute the electronic expectation energy from the Fock and density matrices.
 
     E = 0.5 * sum_{ij}P_ij(H_core_ji + F_ji)
 
@@ -83,4 +83,5 @@ def electronic_energy(
         F: The core Fock matrix. shape: (n_basis, n_basis)
         P: The closed shell density matrix. shape: (n_basis, n_basis)
     """
-    return 0.5 * np.einsum("ij,ji", P, H_core + F)
+    # Note that P is symmetric so we can use P_ij = P_ji
+    return 0.5 * np.sum(P * (H_core + F))

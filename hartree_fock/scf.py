@@ -11,16 +11,16 @@ from structure import molecular_basis
 
 @dataclasses.dataclass
 class SCFResult:
-    electronic_energy: float
+    electronic_energy: np.float64
 
     # The molecular orbital coefficients matrix
     # shape (n_basis, n_basis)
     orbitals: np.ndarray
 
 
-def scf(
+def solve(
     mol_basis: molecular_basis.MolecularBasis,
-    max_iterations: int = 100,
+    max_iterations: int = 50,
     convergence_threshold: float = 1e-6,
 ) -> SCFResult:
     """Performs the self-consistent field (SCF) procedure to compute the
@@ -32,9 +32,10 @@ def scf(
     n_basis = mol_basis.n_basis
 
     # Compute the overlap matrix and its orthogonalizer.
-    S = one_electron.overlap_matrix(mol_basis)
-    X = roothaan.orthogonalize_basis(S)
+    S = one_electron.overlap_matrix(mol_basis)  # shape (n_basis, n_basis)
+    X = roothaan.orthogonalize_basis(S)  # shape (n_basis, n_ind)
 
+    # shape (n_basis, n_basis)
     H_core = one_electron.core_hamiltonian_matrix(mol_basis)
 
     # Initialize the density matrix.
@@ -43,17 +44,18 @@ def scf(
     # Initialize variables.
     C = np.zeros((n_basis, n_basis), dtype=np.float64)
     F = np.zeros((n_basis, n_basis), dtype=np.float64)
-    energy = 0.0
+    energy = np.float64(0.0)
 
     for iteration in range(max_iterations):
         # Compute the Fock matrix.
-        G = fock.two_electron_matrix(mol_basis, P)
-        F = H_core + G
+        G = fock.two_electron_matrix(mol_basis, P)  # shape (n_basis, n_basis)
+        F = H_core + G  # shape (n_basis, n_basis)
 
         # Solve for new orbital coefficients.
+        # C has shape (n_basis, n_ind)
         _, C = roothaan.solve(F, X)
 
-        # Build new density matrix.
+        # Build new density matrix. shape (n_basis, n_basis)
         P_new = density.closed_shell_matrix(C, mol_basis.n_electrons)
 
         delta_P = np.linalg.norm(P_new - P)

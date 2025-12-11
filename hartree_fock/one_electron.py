@@ -18,7 +18,7 @@ def one_electron_matrix(
     Returns:
         A numpy array of shape (N, N) where N=mol_basis.n_basis
     """
-    output = np.empty((mol_basis.n_basis, mol_basis.n_basis), dtype=object)
+    output = np.empty((mol_basis.n_basis, mol_basis.n_basis), dtype=np.float64)
 
     for i, j in itertools.combinations_with_replacement(
         range(len(mol_basis.basis_blocks)), 2

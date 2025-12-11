@@ -77,6 +77,12 @@ def _V(
     P = (g1.exponent * g1.center + g2.exponent * g2.center) / p
     A = g1.center
 
+    # If the max_degree is zero, we can directly return the base case.
+    if g1.max_degree == 0:
+        V = np.zeros((1, 1, 1, 1), dtype=np.float64)
+        _V_base_case(V, g1, g2, s, C, P)
+        return V[:, :, :, 0]
+
     # The last dimension of V needs to be 3 * size_d to have enough space
     # for 3 vertical transfers.
     size_d = g1.max_degree + 1
@@ -164,8 +170,10 @@ def _electron_transfer(I, src_dim, tgt_dim, a, b, c, d, A, B, C, D) -> None:
       -(p/q)I[...,i+1,j-1,0,...,0]
 
     for all 0 <= j < I.shape[tgt_dim] and 0 <= i < I.shape[src_dim] - j.
-    where
     """
+    if I.shape[tgt_dim] == 1:
+        return
+
     # Substitute 0 in the last len(I.shape) - tgt_dim - 1 dimensions.
     I = I[(...,) + (0,) * (len(I.shape) - tgt_dim - 1)]
 
