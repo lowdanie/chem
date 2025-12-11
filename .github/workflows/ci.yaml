@@ -1,0 +1,67 @@
+permissions:
+  contents: write
+
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  fast-tests:
+    name: Fast Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Run Fast Tests
+        run: pytest
+
+      - name: Generate Coverage Badge
+        run: |
+          pip install coverage-badge
+          coverage-badge -f -o coverage.svg
+
+      - name: Commit and Push Badge
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Check if the badge actually changed to avoid empty commits
+          git add coverage.svg
+          git diff --staged --quiet || (git commit -m "Update coverage badge" && git push)
+
+  slow-tests:
+    name: Full Integration Tests
+    needs: fast-tests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Run Full Test Suite with Coverage
+        run: pytest -m slow
