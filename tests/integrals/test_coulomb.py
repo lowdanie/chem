@@ -313,10 +313,13 @@ _TWO_ELECTRON_TEST_CASES = [
                 (1, 2, 3, 3, 1, 2, 2, 3, 1, 2, 1, 3): 102.32862546152272,
             },
         ),
-        marks=pytest.mark.skipif(
-            os.environ.get("CI") == "true",
-            reason="Requires 23GB RAM, exceeding GitHub Actions limits",
-        ),
+        marks=[
+            pytest.mark.slow,
+            pytest.mark.skipif(
+                os.environ.get("CI") == "true",
+                reason="Requires 23GB RAM, exceeding GitHub Actions limits",
+            ),
+        ],
     ),
 ]
 

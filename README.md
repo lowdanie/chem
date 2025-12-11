@@ -25,14 +25,19 @@ from chem.hartree_fock import scf
 
 # Load H2O geometry from pubchem.
 compound = pcp.get_compounds("water", "name", record_type="3d")[0]
-mol = chem.adapters.pubchem.load_molecule(compound)
+mol = pubchem.load_molecule(compound)
 
 # Load the STO-3G basis set from BSE.
 mol_basis = molecular_basis.build(
     mol, basis_fetcher=lambda n: bse.load("sto-3g", n))
 
+def callback(s: scf.State) -> None:
+    print(f'Iteration {s.iteration}: '
+          f'Electronic Energy = {s.electronic_energy}, '
+          f'Delta P = {s.delta_P}')
+
 # Run SCF to solve for the electronic energy.
-result = scf.solve(mol_basis)
+result = scf.solve(mol_basis, scf.Options(callback=callback))
 print(f"Electronic Energy: {result.electronic_energy} H")
 ```
 
