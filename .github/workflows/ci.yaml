@@ -26,8 +26,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
 
-      - name: Run Fast Tests
-        run: pytest
+      - name: Run Fast Tests With Coverage
+        run: pytest --cov --cov-report=xml
 
       - name: Generate Coverage Badge
         run: |
@@ -63,5 +63,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
 
-      - name: Run Full Test Suite with Coverage
+      - name: Run Full Test Suite
         run: pytest -m slow
