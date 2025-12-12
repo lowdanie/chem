@@ -1,9 +1,12 @@
 import numpy as np
+import numpy.typing as npt
 
 from slaterform.basis import basis_block
 
 
-def evaluate(block: basis_block.BasisBlock, points: np.ndarray) -> np.ndarray:
+def evaluate(
+    block: basis_block.BasisBlock, points: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
     """Evaluate the basis functions in a basis block at given points.
 
     Args:

@@ -1,6 +1,7 @@
 import dataclasses
 
 import numpy as np
+import numpy.typing as npt
 
 
 @dataclasses.dataclass
@@ -10,4 +11,4 @@ class Atom:
 
     # Position in Bohr units
     # shape (3,)
-    position: np.ndarray
+    position: npt.NDArray[np.float64]
