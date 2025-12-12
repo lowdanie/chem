@@ -7,7 +7,7 @@ It includes a native implementation of the necessary electron integrals.
 
 # Quick Start
 
-Here is an example which loads water molecule geometry from pubchem and computes the electronic energy using the STO-3G basis set.
+Here is an example which loads water molecule geometry from pubchem and estimates the electronic ground state using the STO-3G basis set.
 
 
 ```python
@@ -53,5 +53,33 @@ Iteration 18: Total Energy = -74.96444760738025, Delta P = 5.441747585731223e-07
 Total Energy: -74.96444760738025 H
 Electronic Energy: -84.04881211726543 H
 ```
+
+We can now evaluate the electron density on the points of a grid and 
+save the result to a
+[cube file](https://cubefile.readthedocs.io/en/latest/) so that we can render it with tools like
+[3dmol](https://3dmol.org/doc/index.html).
+
+```python
+from slaterform.analysis import cube_io
+from slaterform.analysis import density
+from slaterform.analysis import grid as analysis_grid
+
+grid = analysis_grid.build_bounding_grid(mol)
+density_data = density.evaluate_density(mol_basis, result.density, grid)
+
+with open('density.cube', 'w') as f):
+    cube_io.write_cube_data(
+        mol=mol, grid=grid, data=density_data,
+        description="density", f=f
+    )
+```
+
+Here is what the result looks like on
+[3dmol](https://3dmol.org/doc/index.html):
+
+[!Electron Density of Water](assets/images/h20_density_cloud.png)
+
+
+
 
 
