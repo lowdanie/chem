@@ -2,12 +2,12 @@ import itertools
 
 import numpy as np
 
-from chem.basis import basis_block
-from chem.basis import operators
-from chem.integrals import coulomb
-from chem.structure import atom
-from chem.structure import molecular_basis
-from chem.hartree_fock import fock
+from slaterform.basis import basis_block
+from slaterform.basis import operators
+from slaterform.integrals import coulomb
+from slaterform.structure import atom
+from slaterform.structure import molecular_basis
+from slaterform.hartree_fock import fock
 
 _TEST_ATOMS = [
     atom.Atom(

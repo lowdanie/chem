@@ -2,11 +2,11 @@ import numpy as np
 
 import itertools
 
-from chem.integrals import overlap
-from chem.integrals import kinetic
-from chem.integrals import coulomb
-from chem.structure import molecular_basis
-from chem.basis import operators
+from slaterform.integrals import overlap
+from slaterform.integrals import kinetic
+from slaterform.integrals import coulomb
+from slaterform.structure import molecular_basis
+from slaterform.basis import operators
 
 
 def one_electron_matrix(

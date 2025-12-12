@@ -3,8 +3,8 @@ import pytest
 
 import numpy as np
 
-from chem.adapters import bse
-from chem.basis import contracted_gto
+from slaterform.adapters import bse
+from slaterform.basis import contracted_gto
 
 
 @dataclasses.dataclass

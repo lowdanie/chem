@@ -1,9 +1,9 @@
 import numpy as np
 import pubchempy as pcp
 
-from chem.structure import molecule
-from chem.structure import atom
-from chem.structure import units
+from slaterform.structure import molecule
+from slaterform.structure import atom
+from slaterform.structure import units
 
 
 def _load_atom(atom_data: pcp.Atom) -> atom.Atom:

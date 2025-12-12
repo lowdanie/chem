@@ -2,12 +2,12 @@ import pytest
 
 import numpy as np
 
-from chem.adapters import bse
-from chem.basis import contracted_gto
-from chem.structure import atom
-from chem.structure import molecule
-from chem.structure import molecular_basis
-from chem.hartree_fock import scf
+from slaterform.adapters import bse
+from slaterform.basis import contracted_gto
+from slaterform.structure import atom
+from slaterform.structure import molecule
+from slaterform.structure import molecular_basis
+from slaterform.hartree_fock import scf
 
 _H2_MOLECULE = molecule.Molecule(
     atoms=[

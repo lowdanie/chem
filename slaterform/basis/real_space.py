@@ -1,6 +1,6 @@
 import numpy as np
 
-from chem.basis import basis_block
+from slaterform.basis import basis_block
 
 
 def evaluate(block: basis_block.BasisBlock, points: np.ndarray) -> np.ndarray:

@@ -3,11 +3,11 @@ from typing import Callable, Optional
 
 import numpy as np
 
-from chem.hartree_fock import density
-from chem.hartree_fock import fock
-from chem.hartree_fock import one_electron
-from chem.hartree_fock import roothaan
-from chem.structure import molecular_basis
+from slaterform.hartree_fock import density
+from slaterform.hartree_fock import fock
+from slaterform.hartree_fock import one_electron
+from slaterform.hartree_fock import roothaan
+from slaterform.structure import molecular_basis
 
 SolverCallback = Callable[["State"], None]
 

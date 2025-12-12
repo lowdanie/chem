@@ -1,7 +1,7 @@
 import numpy as np
 
-from chem.integrals import overlap
-from chem.integrals import gaussian
+from slaterform.integrals import overlap
+from slaterform.integrals import gaussian
 
 
 def _generate_cartesian_powers(l: int) -> np.ndarray:

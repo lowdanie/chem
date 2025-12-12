@@ -17,11 +17,11 @@ Here is an example which loads water molecule geometry from pubchem and computes
 ```python
 import pubchempy as pcp
 
-from chem.adapters import pubchem
-from chem.adapters import bse
-from chem.structure import molecule
-from chem.structure import molecular_basis
-from chem.hartree_fock import scf
+from slaterform.adapters import pubchem
+from slaterform.adapters import bse
+from slaterform.structure import molecule
+from slaterform.structure import molecular_basis
+from slaterform.hartree_fock import scf
 
 # Load H2O geometry from pubchem.
 compound = pcp.get_compounds("water", "name", record_type="3d")[0]

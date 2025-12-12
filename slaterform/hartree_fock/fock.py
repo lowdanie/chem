@@ -1,9 +1,9 @@
 import numpy as np
 
-from chem.basis import operators
-from chem.integrals import coulomb
-from chem.hartree_fock import quartet as quartet_lib
-from chem.structure import molecular_basis
+from slaterform.basis import operators
+from slaterform.integrals import coulomb
+from slaterform.hartree_fock import quartet as quartet_lib
+from slaterform.structure import molecular_basis
 
 
 def _scatter_integral_block(

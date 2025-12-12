@@ -1,9 +1,9 @@
 import numpy as np
 
-from chem.basis import contracted_gto
-from chem.structure import atom
-from chem.structure import molecule
-from chem.structure import molecular_basis
+from slaterform.basis import contracted_gto
+from slaterform.structure import atom
+from slaterform.structure import molecule
+from slaterform.structure import molecular_basis
 
 
 def _assert_atoms_equal(atom1: atom.Atom, atom2: atom.Atom):

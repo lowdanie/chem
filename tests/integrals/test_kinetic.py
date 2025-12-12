@@ -3,9 +3,9 @@ import pytest
 
 import numpy as np
 
-from chem.integrals import gaussian
-from chem.integrals import overlap
-from chem.integrals import kinetic
+from slaterform.integrals import gaussian
+from slaterform.integrals import overlap
+from slaterform.integrals import kinetic
 
 
 @dataclasses.dataclass

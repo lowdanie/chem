@@ -3,12 +3,12 @@ import pytest
 
 import numpy as np
 
-from chem.basis import basis_block
-from chem.basis import operators
-from chem.adapters import bse
-from chem.integrals import overlap
-from chem.integrals import kinetic
-from chem.integrals import coulomb
+from slaterform.basis import basis_block
+from slaterform.basis import operators
+from slaterform.adapters import bse
+from slaterform.integrals import overlap
+from slaterform.integrals import kinetic
+from slaterform.integrals import coulomb
 
 
 @dataclasses.dataclass
