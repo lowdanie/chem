@@ -78,7 +78,7 @@ Here is what the result looks like on
 [3dmol](https://3dmol.org/doc/index.html):
 
 <p align="center">
-  <img src="assets/images/h20_density_cloud.png" width="600" alt="Electron Density of Water">
+  <img src="assets/images/h2o_density_cloud.png" width="600" alt="Electron Density of Water">
 </p>
 
 
