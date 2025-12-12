@@ -1,13 +1,9 @@
 ![Coverage Status](./coverage.svg)
 
-# Overview
+# Slaterform
 
-This is a self-contained implementation of the Hartree-Fock
-self-consistent field method in pure python/numpy.
-This includes an implementation of the necessary electron integrals.
-
-The only dependencies are used to load and parse data from external sources such as [basis set exchange](https://www.basissetexchange.org/)
-and [pubchem](https://pubchem.ncbi.nlm.nih.gov/).
+Slaterform is a self-contained Hartree-Fock engine written in pure python with numpy.
+It includes a native implementation of the necessary electron integrals.
 
 # Quick Start
 
