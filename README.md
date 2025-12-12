@@ -77,7 +77,7 @@ with open('density.cube', 'w') as f):
 Here is what the result looks like on
 [3dmol](https://3dmol.org/doc/index.html):
 
-[!Electron Density of Water](assets/images/h20_density_cloud.png)
+![Electron Density of Water](assets/images/h20_density_cloud.png)
 
 
 
