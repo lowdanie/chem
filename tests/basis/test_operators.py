@@ -653,7 +653,6 @@ def test_two_electron_coulomb_symmetry():
     )
 
     for sigma in permutations:
-        print("sigma: ", sigma)
         V_perm = operators.two_electron_matrix(
             blocks[sigma[0]],
             blocks[sigma[1]],

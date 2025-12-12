@@ -24,9 +24,10 @@ _H2_MOLECULE = molecule.Molecule(
     ]
 )
 
-# The standard STO-3G basis set electronic energy for H2 at
+# The standard STO-3G basis set energies for H2 at
 # 1.4 Bohr bond length.
-_EXPECTED_ENERGY_H2 = -1.8310  # Hartree
+_EXPECTED_ELECTRONIC_ENERGY_H2 = -1.8310  # Hartree
+_EXPECTED_TOTAL_ENERGY_H2 = -1.1167  # Hartree
 
 # Water molecule in Bohr units. The geometry is from pubchem.
 _H20_MOLECULE = molecule.Molecule(
@@ -75,7 +76,9 @@ _H20_MOLECULE = molecule.Molecule(
 # mf.kernel()
 #
 # print(f"Electronic Energy: {mf.e_tot - mol.energy_nuc():.8f} Ha")
-_EXPECTED_ENERGY_H2O = -84.04881208  # Hartree
+# print(f"Total Energy:      {mf.e_tot:.4f} Ha")
+_EXPECTED_ELECTRONIC_ENERGY_H2O = -84.04881208  # Hartree
+_EXPECTED_TOTAL_ENERGY_H20 = -74.96444758  # Hartree
 
 
 def _basis_fetcher(n: int) -> list[contracted_gto.ContractedGTO]:
@@ -89,9 +92,15 @@ def test_H2():
 
     np.testing.assert_almost_equal(
         result.electronic_energy,
-        _EXPECTED_ENERGY_H2,
+        _EXPECTED_ELECTRONIC_ENERGY_H2,
         decimal=4,
     )
+    np.testing.assert_almost_equal(
+        result.total_energy,
+        _EXPECTED_TOTAL_ENERGY_H2,
+        decimal=4,
+    )
+
 
 @pytest.mark.slow
 def test_H2O():
@@ -101,6 +110,11 @@ def test_H2O():
 
     np.testing.assert_almost_equal(
         result.electronic_energy,
-        _EXPECTED_ENERGY_H2O,
+        _EXPECTED_ELECTRONIC_ENERGY_H2O,
+        decimal=5,
+    )
+    np.testing.assert_almost_equal(
+        result.total_energy,
+        _EXPECTED_TOTAL_ENERGY_H20,
         decimal=5,
     )

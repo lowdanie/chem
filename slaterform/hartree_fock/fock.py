@@ -73,7 +73,7 @@ def two_electron_matrix(
 
 def electronic_energy(
     H_core: np.ndarray, F: np.ndarray, P: np.ndarray
-) -> np.float64:
+) -> float:
     """Compute the electronic expectation energy from the Fock and density matrices.
 
     E = 0.5 * sum_{ij}P_ij(H_core_ji + F_ji)

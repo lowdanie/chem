@@ -23,6 +23,11 @@ class MolecularBasis:
     block_slices: list[slice]
 
     @property
+    def molecule(self) -> molecule.Molecule:
+        """The molecule associated with this molecular basis."""
+        return molecule.Molecule(atoms=self.atoms)
+    
+    @property
     def n_basis(self) -> int:
         """The total number of basis functions in this molecular basis."""
         return sum(block.n_basis for block in self.basis_blocks)

@@ -77,3 +77,28 @@ def test_build_molecular_basis():
     np.testing.assert_array_equal(
         mol_basis.basis_blocks[2].center, mol.atoms[1].position
     )
+
+def test_molecule_property():
+    atoms = [
+        atom.Atom(
+            symbol="H",
+            number=1,
+            position=np.array([0.0, 0.0, 0.0]),
+        ),
+        atom.Atom(
+            symbol="O",
+            number=8,
+            position=np.array([0.0, 0.0, 1.0]),
+        ),
+    ]
+
+    mol_basis = molecular_basis.MolecularBasis(
+        atoms=atoms,
+        basis_blocks=[],
+        block_slices=[],
+    )
+
+    mol = mol_basis.molecule
+    assert len(mol.atoms) == 2
+    _assert_atoms_equal(mol.atoms[0], atoms[0])
+    _assert_atoms_equal(mol.atoms[1], atoms[1])

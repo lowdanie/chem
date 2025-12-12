@@ -28,7 +28,6 @@ from slaterform.hartree_fock import quartet as quartet_lib
 )
 def test_iter_canonical_quartets(n, expected):
     actual = set(quartet_lib.iter_canonical_quartets(n))
-    print("ACTUAL: ", actual)
     assert actual == expected
 
 

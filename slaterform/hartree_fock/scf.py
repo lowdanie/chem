@@ -2,12 +2,14 @@ import dataclasses
 from typing import Callable, Optional
 
 import numpy as np
+import numpy.typing as npt
 
 from slaterform.hartree_fock import density
 from slaterform.hartree_fock import fock
 from slaterform.hartree_fock import one_electron
 from slaterform.hartree_fock import roothaan
 from slaterform.structure import molecular_basis
+from slaterform.structure import nuclear
 
 SolverCallback = Callable[["State"], None]
 
@@ -21,14 +23,16 @@ class Options:
 
 @dataclasses.dataclass
 class Context:
+    nuclear_energy: float
+
     # Overlap matrix. shape (n_basis, n_basis)
-    S: np.ndarray
+    S: npt.NDArray[np.float64]
 
     # Orthogonalizer matrix. shape (n_basis, n_ind)
-    X: np.ndarray
+    X: npt.NDArray[np.float64]
 
     # Core Hamiltonian matrix. shape (n_basis, n_basis)
-    H_core: np.ndarray
+    H_core: npt.NDArray[np.float64]
 
 
 @dataclasses.dataclass
@@ -37,22 +41,22 @@ class State:
     context: Context
 
     # Molecular orbital coefficients matrix. shape (n_basis, n_ind)
-    C: np.ndarray
+    C: npt.NDArray[np.float64]
 
     # Closed shell density matrix. shape (n_basis, n_basis)
-    P: np.ndarray
+    P: npt.NDArray[np.float64]
 
     # Fock matrix. shape (n_basis, n_basis)
-    F: np.ndarray
+    F: npt.NDArray[np.float64]
 
-    # The electronic energy.
-    electronic_energy: np.float64
+    electronic_energy: float
+    total_energy: float
 
     # Fock matrix eigenvalues. shape (n_basis, )
-    orbital_energies: np.ndarray
+    orbital_energies: npt.NDArray[np.float64]
 
     # Change in density matrix. ||P_new - P_old||_2
-    delta_P: np.float64
+    delta_P: float
 
 
 @dataclasses.dataclass
@@ -60,29 +64,33 @@ class Result:
     converged: bool
     iterations: int
 
-    electronic_energy: np.float64
+    electronic_energy: float
+    nuclear_energy: float
+    total_energy: float
 
     # Fock matrix eigenvalues.
     # shape (n_basis, )
-    orbital_energies: np.ndarray
+    orbital_energies: npt.NDArray[np.float64]
 
     # The molecular orbital coefficients matrix
     # shape (n_basis, n_basis)
-    orbitals: np.ndarray
+    orbitals: npt.NDArray[np.float64]
 
     # The closed shell density matrix.
     # shape (n_basis, n_basis)
-    density: np.ndarray
+    density: npt.NDArray[np.float64]
 
 
 def _build_initial_state(mol_basis: molecular_basis.MolecularBasis) -> State:
     n_basis = mol_basis.n_basis
     S = one_electron.overlap_matrix(mol_basis)
     H_core = one_electron.core_hamiltonian_matrix(mol_basis)
+    nuclear_energy = nuclear.repulsion_energy(mol_basis.molecule)
 
     return State(
         iteration=0,
         context=Context(
+            nuclear_energy=nuclear_energy,
             S=S,
             X=roothaan.orthogonalize_basis(S),
             H_core=H_core,
@@ -90,9 +98,10 @@ def _build_initial_state(mol_basis: molecular_basis.MolecularBasis) -> State:
         C=np.zeros((n_basis, n_basis), dtype=np.float64),
         P=np.zeros((n_basis, n_basis), dtype=np.float64),
         F=H_core,
-        electronic_energy=np.float64(0.0),
+        electronic_energy=0.0,
+        total_energy=nuclear_energy,
         orbital_energies=np.zeros(n_basis, dtype=np.float64),
-        delta_P=np.float64(np.inf),
+        delta_P=np.inf,
     )
 
 
@@ -101,6 +110,8 @@ def _build_result(state: State, converged: bool) -> Result:
         converged=converged,
         iterations=state.iteration,
         electronic_energy=state.electronic_energy,
+        nuclear_energy=state.context.nuclear_energy,
+        total_energy=state.total_energy,
         orbital_energies=state.orbital_energies,
         orbitals=state.C,
         density=state.P,
@@ -128,8 +139,9 @@ def _scf_step(
         P=P,
         F=F,
         electronic_energy=electronic_energy,
+        total_energy=electronic_energy + state.context.nuclear_energy,
         orbital_energies=orbital_energies,
-        delta_P=np.linalg.norm(P - state.P),
+        delta_P=float(np.linalg.norm(P - state.P)),
     )
 
 

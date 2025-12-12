@@ -30,25 +30,28 @@ mol_basis = molecular_basis.build(
 # Callback to log progress.
 def logger(s: scf.State) -> None:
     print(f'Iteration {s.iteration}: '
-          f'Electronic Energy = {s.electronic_energy}, '
+          f'Total Energy = {s.total_energy}, '
           f'Delta P = {s.delta_P}')
 
-# Run SCF to solve for the electronic energy.
+# Run SCF to solve for the energy.
 result = scf.solve(mol_basis, scf.Options(callback=logger))
+
+print(f"Total Energy: {result.total_energy} H")
 print(f"Electronic Energy: {result.electronic_energy} H")
 ```
 
 Output:
 
 ```
-Iteration 0: Electronic Energy = 0.0000000000 Delta P = 5.3606682079e+00
-Iteration 1: Electronic Energy = -82.3221148408 Delta P = 3.6807088051e+00
-Iteration 2: Electronic Energy = -84.0275397612 Delta P = 4.1223597134e-01
-Iteration 3: Electronic Energy = -84.0478104496 Delta P = 7.7251144625e-02
+Iteration 1: Total Energy = -73.23775033094817, Delta P = 5.360668207876737
+Iteration 2: Total Energy = -74.94317525135683, Delta P = 3.6807088050698793
+Iteration 3: Total Energy = -74.96344593966914, Delta P = 0.41223597134446294
 ...
-Iteration 17: Electronic Energy = -84.0488121173 Delta P = 5.4417475857e-07
+Iteration 17: Total Energy = -74.96444760738018, Delta P = 1.245141361212375e-06
+Iteration 18: Total Energy = -74.96444760738025, Delta P = 5.441747585731223e-07
 
-Electronic Energy: -84.04881211726536 H
+Total Energy: -74.96444760738025 H
+Electronic Energy: -84.04881211726543 H
 ```
 
 

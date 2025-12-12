@@ -351,5 +351,4 @@ def test_two_electron(case):
 
     for coord, expected in case.expected_values.items():
         actual = I[tuple(coord)]
-        print(f"actual={actual}, expected={expected}")
         np.testing.assert_allclose(actual, expected, rtol=1e-07, atol=0.1)
