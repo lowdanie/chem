@@ -66,5 +66,5 @@ class _EvaluateDensityTestCase:
 def test_evaluate_density(
     case: _EvaluateDensityTestCase,
 ) -> None:
-    density_values = density.evaluate_density(case.mol_basis, case.P, case.grid)
+    density_values = density.evaluate(case.mol_basis, case.P, case.grid)
     np.testing.assert_allclose(density_values, case.expected_density)

@@ -6,7 +6,7 @@ from slaterform.structure import molecular_basis
 from slaterform.structure import real_space
 
 
-def evaluate_density(
+def evaluate(
     mol_basis: molecular_basis.MolecularBasis,
     P: npt.NDArray[np.float64],
     grid: grid_lib.RegularGrid,

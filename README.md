@@ -65,7 +65,7 @@ from slaterform.analysis import density
 from slaterform.analysis import grid as analysis_grid
 
 grid = analysis_grid.build_bounding_grid(mol)
-density_data = density.evaluate_density(mol_basis, result.density, grid)
+density_data = density.evaluate(mol_basis, result.density, grid)
 
 with open('density.cube', 'w') as f):
     cube_io.write_cube_data(
@@ -77,8 +77,9 @@ with open('density.cube', 'w') as f):
 Here is what the result looks like on
 [3dmol](https://3dmol.org/doc/index.html):
 
-![Electron Density of Water](assets/images/h20_density_cloud.png)
-
+<p align="center">
+  <img src="assets/images/h20_density_cloud.png" width="600" alt="Electron Density of Water">
+</p>
 
 
 
