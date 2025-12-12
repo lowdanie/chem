@@ -7,7 +7,10 @@ It includes a native implementation of the necessary electron integrals.
 
 # Quick Start
 
-Here is an example which loads water molecule geometry from pubchem and estimates the electronic ground state using the STO-3G basis set.
+Here is an example which loads water molecule geometry from
+[pubchem](https://pubchem.ncbi.nlm.nih.gov/)
+and estimates the electronic ground state using the STO-3G basis set from
+[basis set exchange](https://www.basissetexchange.org/).
 
 
 ```python
