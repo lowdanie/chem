@@ -5,6 +5,8 @@
 Slaterform is a self-contained Hartree-Fock engine written in pure python with numpy.
 It includes a native implementation of the necessary electron integrals.
 
+An in-depth discussion of the theory behind this implementation can be found [here](https://www.daniellowengrub.com/blog/2025/07/26/scf).
+
 # Quick Start
 
 Here is an example which loads water molecule geometry from
