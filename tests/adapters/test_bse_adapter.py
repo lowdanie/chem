@@ -3,8 +3,8 @@ import pytest
 
 import numpy as np
 
-from slaterform.adapters import bse
-from slaterform.basis import contracted_gto
+from hflib.adapters import bse
+from hflib.basis import contracted_gto
 
 
 @dataclasses.dataclass

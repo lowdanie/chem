@@ -5,10 +5,10 @@ from unittest import mock
 
 import numpy as np
 
-from slaterform.structure import atom
-from slaterform.structure import molecule
-from slaterform.adapters import pubchem
-from slaterform.structure import units
+from hflib.structure import atom
+from hflib.structure import molecule
+from hflib.adapters import pubchem
+from hflib.structure import units
 
 
 @dataclasses.dataclass

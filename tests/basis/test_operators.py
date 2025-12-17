@@ -3,12 +3,12 @@ import pytest
 
 import numpy as np
 
-from slaterform.basis import basis_block
-from slaterform.basis import operators
-from slaterform.adapters import bse
-from slaterform.integrals import overlap
-from slaterform.integrals import kinetic
-from slaterform.integrals import coulomb
+from hflib.basis import basis_block
+from hflib.basis import operators
+from hflib.adapters import bse
+from hflib.integrals import overlap
+from hflib.integrals import kinetic
+from hflib.integrals import coulomb
 
 
 @dataclasses.dataclass

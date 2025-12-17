@@ -1,8 +1,6 @@
 ![Coverage Status](./coverage.svg)
 
-# Slaterform
-
-Slaterform is a self-contained Hartree-Fock engine written in pure python with numpy.
+This is a self-contained Hartree-Fock engine written in pure python with numpy.
 It includes a native implementation of the necessary electron integrals.
 
 An in-depth discussion of the theory behind this implementation can be found [here](https://www.daniellowengrub.com/blog/2025/07/26/scf).
@@ -18,11 +16,11 @@ and estimates the electronic ground state using the STO-3G basis set from
 ```python
 import pubchempy as pcp
 
-from slaterform.adapters import pubchem
-from slaterform.adapters import bse
-from slaterform.structure import molecule
-from slaterform.structure import molecular_basis
-from slaterform.hartree_fock import scf
+from hflib.adapters import pubchem
+from hflib.adapters import bse
+from hflib.structure import molecule
+from hflib.structure import molecular_basis
+from hflib.hartree_fock import scf
 
 # Load H2O geometry from pubchem.
 compound = pcp.get_compounds("water", "name", record_type="3d")[0]
@@ -65,9 +63,9 @@ save the result to a
 [3dmol](https://3dmol.org/doc/index.html).
 
 ```python
-from slaterform.analysis import cube_io
-from slaterform.analysis import density
-from slaterform.analysis import grid as analysis_grid
+from hflib.analysis import cube_io
+from hflib.analysis import density
+from hflib.analysis import grid as analysis_grid
 
 grid = analysis_grid.build_bounding_grid(mol)
 density_data = density.evaluate(mol_basis, result.density, grid)

@@ -1,7 +1,7 @@
 import numpy as np
 import basis_set_exchange as bse
 
-from slaterform.basis import contracted_gto
+from hflib.basis import contracted_gto
 
 _STR_TO_PRIMITIVE_TYPE = {
     "gto": contracted_gto.PrimitiveType.CARTESIAN,

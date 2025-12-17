@@ -3,7 +3,7 @@ import pytest
 
 import numpy as np
 
-from slaterform.basis import cartesian
+from hflib.basis import cartesian
 
 
 @dataclasses.dataclass

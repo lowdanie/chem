@@ -4,8 +4,8 @@ import os
 
 import numpy as np
 
-from slaterform.integrals import coulomb
-from slaterform.integrals import gaussian
+from hflib.integrals import coulomb
+from hflib.integrals import gaussian
 
 
 @dataclasses.dataclass

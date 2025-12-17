@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import special
-from slaterform.integrals import gaussian
+from hflib.integrals import gaussian
 
 
 def boys(n, x):

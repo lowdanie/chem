@@ -1,9 +1,9 @@
 import numpy as np
 
-from slaterform.basis import contracted_gto
-from slaterform.structure import atom
-from slaterform.structure import molecule
-from slaterform.structure import molecular_basis
+from hflib.basis import contracted_gto
+from hflib.structure import atom
+from hflib.structure import molecule
+from hflib.structure import molecular_basis
 
 
 def _assert_atoms_equal(atom1: atom.Atom, atom2: atom.Atom):
@@ -77,6 +77,7 @@ def test_build_molecular_basis():
     np.testing.assert_array_equal(
         mol_basis.basis_blocks[2].center, mol.atoms[1].position
     )
+
 
 def test_molecule_property():
     atoms = [

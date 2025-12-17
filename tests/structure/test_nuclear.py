@@ -2,9 +2,9 @@ import pytest
 
 import numpy as np
 
-from slaterform.structure import atom
-from slaterform.structure import molecule
-from slaterform.structure import nuclear
+from hflib.structure import atom
+from hflib.structure import molecule
+from hflib.structure import nuclear
 
 
 @pytest.mark.parametrize(

@@ -4,9 +4,9 @@ import pytest
 import numpy as np
 import numpy.typing as npt
 
-from slaterform.basis import basis_block
-from slaterform.structure import molecular_basis
-from slaterform.structure import real_space
+from hflib.basis import basis_block
+from hflib.structure import molecular_basis
+from hflib.structure import real_space
 
 
 @dataclasses.dataclass

@@ -3,9 +3,9 @@ import pytest
 
 import numpy as np
 
-from slaterform.integrals import gaussian
-from slaterform.integrals import overlap
-from slaterform.integrals import kinetic
+from hflib.integrals import gaussian
+from hflib.integrals import overlap
+from hflib.integrals import kinetic
 
 
 @dataclasses.dataclass
