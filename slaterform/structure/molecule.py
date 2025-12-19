@@ -2,7 +2,7 @@ import dataclasses
 
 import numpy as np
 
-from hflib.structure import atom
+from slaterform.structure import atom
 
 
 @dataclasses.dataclass

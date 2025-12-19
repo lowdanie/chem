@@ -2,17 +2,17 @@ import pytest
 
 import numpy as np
 
-from hflib.adapters import bse
-from hflib.basis import basis_block
-from hflib.basis import contracted_gto
-from hflib.basis import operators
-from hflib.hartree_fock import one_electron
-from hflib.integrals import overlap
-from hflib.integrals import kinetic
-from hflib.integrals import coulomb
-from hflib.structure import atom
-from hflib.structure import molecule
-from hflib.structure import molecular_basis
+from slaterform.adapters import bse
+from slaterform.basis import basis_block
+from slaterform.basis import contracted_gto
+from slaterform.basis import operators
+from slaterform.hartree_fock import one_electron
+from slaterform.integrals import overlap
+from slaterform.integrals import kinetic
+from slaterform.integrals import coulomb
+from slaterform.structure import atom
+from slaterform.structure import molecule
+from slaterform.structure import molecular_basis
 
 _TEST_ATOMS = [
     atom.Atom(

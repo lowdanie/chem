@@ -4,9 +4,9 @@ import pytest
 import numpy as np
 import numpy.typing as npt
 
-from hflib.analysis import grid as analysis_grid
-from hflib.structure import atom
-from hflib.structure import molecule
+from slaterform.analysis import grid as analysis_grid
+from slaterform.structure import atom
+from slaterform.structure import molecule
 
 
 @dataclasses.dataclass

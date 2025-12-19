@@ -4,12 +4,12 @@ from typing import Callable, Optional
 import numpy as np
 import numpy.typing as npt
 
-from hflib.hartree_fock import density
-from hflib.hartree_fock import fock
-from hflib.hartree_fock import one_electron
-from hflib.hartree_fock import roothaan
-from hflib.structure import molecular_basis
-from hflib.structure import nuclear
+from slaterform.hartree_fock import density
+from slaterform.hartree_fock import fock
+from slaterform.hartree_fock import one_electron
+from slaterform.hartree_fock import roothaan
+from slaterform.structure import molecular_basis
+from slaterform.structure import nuclear
 
 SolverCallback = Callable[["State"], None]
 

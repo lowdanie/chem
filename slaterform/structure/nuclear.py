@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 
-from hflib.structure import molecule
+from slaterform.structure import molecule
 
 
 def repulsion_energy(mol: molecule.Molecule) -> float:

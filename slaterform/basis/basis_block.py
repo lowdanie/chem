@@ -3,8 +3,8 @@ from typing import Callable
 
 import numpy as np
 
-from hflib.basis import contracted_gto
-from hflib.basis import cartesian
+from slaterform.basis import contracted_gto
+from slaterform.basis import cartesian
 
 
 @dataclasses.dataclass

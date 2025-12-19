@@ -1,8 +1,8 @@
 import numpy as np
 import numpy.typing as npt
 
-from hflib.basis import real_space as basis_real_space
-from hflib.structure import molecular_basis
+from slaterform.basis import real_space as basis_real_space
+from slaterform.structure import molecular_basis
 
 
 def evaluate(

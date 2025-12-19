@@ -3,8 +3,8 @@ import pytest
 
 import numpy as np
 
-from hflib.basis import basis_block
-from hflib.basis import real_space
+from slaterform.basis import basis_block
+from slaterform.basis import real_space
 
 
 @dataclasses.dataclass

@@ -1,9 +1,9 @@
 import numpy as np
 import numpy.typing as npt
 
-from hflib.analysis import grid as grid_lib
-from hflib.structure import molecular_basis
-from hflib.structure import real_space
+from slaterform.analysis import grid as grid_lib
+from slaterform.structure import molecular_basis
+from slaterform.structure import real_space
 
 
 def evaluate(

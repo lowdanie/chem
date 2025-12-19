@@ -4,8 +4,8 @@ from typing import Callable
 
 import numpy as np
 
-from hflib.basis import basis_block
-from hflib.integrals import gaussian
+from slaterform.basis import basis_block
+from slaterform.integrals import gaussian
 
 # A one-electron operator between two BasisBlocks.
 # The returned array has shape (d1+1, d1+1, d1+1, d2+1, d2+1, d2+1)

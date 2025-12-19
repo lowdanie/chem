@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from hflib.basis import basis_block
+from slaterform.basis import basis_block
 
 
 def evaluate(

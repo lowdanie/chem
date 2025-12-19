@@ -4,11 +4,11 @@ import pytest
 import numpy as np
 import numpy.typing as npt
 
-from hflib.analysis import density
-from hflib.analysis import grid as analysis_grid
-from hflib.basis import basis_block
-from hflib.structure import atom
-from hflib.structure import molecular_basis
+from slaterform.analysis import density
+from slaterform.analysis import grid as analysis_grid
+from slaterform.basis import basis_block
+from slaterform.structure import atom
+from slaterform.structure import molecular_basis
 
 
 @dataclasses.dataclass

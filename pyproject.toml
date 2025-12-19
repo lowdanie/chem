@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hflib"
+name = "slaterform"
 version = "0.1.0"
 dependencies = [
     "basis_set_exchange",
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["hflib"]
+packages = ["slaterform"]
 
 [tool.pytest.ini_options]
 pythonpath = "."
@@ -24,6 +24,6 @@ markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 addopts = "-m 'not slow'"
 
 [tool.coverage.run]
-source = ["hflib"]
+source = ["slaterform"]
 omit = ["tests/*"]
 branch = true

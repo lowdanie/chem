@@ -3,7 +3,7 @@ import numpy as np
 import numpy.typing as npt
 
 
-from hflib.structure import molecule
+from slaterform.structure import molecule
 
 
 @dataclasses.dataclass
