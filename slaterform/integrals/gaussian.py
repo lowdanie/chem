@@ -1,17 +1,20 @@
 import dataclasses
+from typing import Union
 
 import jax
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 import numpy as np
 
+from slaterform import types
+
 
 @register_pytree_node_class
 @dataclasses.dataclass(frozen=True)
 class GaussianBasis1d:
     max_degree: int
-    exponent: jax.Array
-    center: jax.Array
+    exponent: types.Array
+    center: types.Array
 
     def tree_flatten(self):
         children = (self.exponent, self.center)
@@ -31,8 +34,8 @@ class GaussianBasis1d:
 @dataclasses.dataclass
 class GaussianBasis3d:
     max_degree: int
-    exponent: jax.Array
-    center: jax.Array  # shape (3,)
+    exponent: types.Array
+    center: types.Array  # shape (3,)
 
     def tree_flatten(self):
         children = (self.exponent, self.center)
@@ -48,9 +51,17 @@ class GaussianBasis3d:
         )
 
 
-def gaussian_3d_to_1d(g: GaussianBasis3d, dim: int) -> GaussianBasis1d:
+def gaussian_3d_to_1d_jax(g: GaussianBasis3d, dim: int) -> GaussianBasis1d:
+    center = jnp.asarray(g.center)
     return GaussianBasis1d(
-        max_degree=g.max_degree, exponent=g.exponent, center=g.center[dim]
+        max_degree=g.max_degree, exponent=g.exponent, center=center[dim]
+    )
+
+
+def gaussian_3d_to_1d(g: GaussianBasis3d, dim: int) -> GaussianBasis1d:
+    center = np.asarray(g.center)
+    return GaussianBasis1d(
+        max_degree=g.max_degree, exponent=g.exponent, center=center[dim]
     )
 
 

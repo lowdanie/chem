@@ -3,21 +3,20 @@ import pytest
 
 import numpy as np
 
-from slaterform.integrals import gaussian
-from slaterform.integrals import overlap
+import slaterform as sf
 
 
 @dataclasses.dataclass
 class _TestCase1d:
-    g1: gaussian.GaussianBasis1d
-    g2: gaussian.GaussianBasis1d
+    g1: sf.GaussianBasis1d
+    g2: sf.GaussianBasis1d
     expected: np.ndarray
 
 
 @dataclasses.dataclass
 class _TestCase3dSparse:
-    g1: gaussian.GaussianBasis3d
-    g2: gaussian.GaussianBasis3d
+    g1: sf.GaussianBasis3d
+    g2: sf.GaussianBasis3d
     expected_indices: np.ndarray  # shape (n, 6)
     expected_values: np.ndarray  # shape (n,)
 
@@ -32,8 +31,8 @@ class _TestCase3dSparse:
 # >>> expected[i, j] = float(res.evalf())
 _TEST_CASES_1D = [
     _TestCase1d(
-        g1=gaussian.GaussianBasis1d(max_degree=2, exponent=0.5, center=-2.0),
-        g2=gaussian.GaussianBasis1d(max_degree=3, exponent=0.2, center=1.0),
+        g1=sf.GaussianBasis1d(max_degree=2, exponent=0.5, center=-2.0),
+        g2=sf.GaussianBasis1d(max_degree=3, exponent=0.2, center=1.0),
         expected=np.array(
             [
                 [0.58566234, -1.25499072, 3.10759608, -8.45197834],
@@ -43,18 +42,18 @@ _TEST_CASES_1D = [
         ),
     ),
     _TestCase1d(
-        g1=gaussian.GaussianBasis1d(max_degree=0, exponent=0.5, center=-2.0),
-        g2=gaussian.GaussianBasis1d(max_degree=0, exponent=0.2, center=1.0),
+        g1=sf.GaussianBasis1d(max_degree=0, exponent=0.5, center=-2.0),
+        g2=sf.GaussianBasis1d(max_degree=0, exponent=0.2, center=1.0),
         expected=np.array([[0.58566234]]),
     ),
     _TestCase1d(
-        g1=gaussian.GaussianBasis1d(max_degree=0, exponent=0.5, center=-2.0),
-        g2=gaussian.GaussianBasis1d(max_degree=2, exponent=0.2, center=1.0),
+        g1=sf.GaussianBasis1d(max_degree=0, exponent=0.5, center=-2.0),
+        g2=sf.GaussianBasis1d(max_degree=2, exponent=0.2, center=1.0),
         expected=np.array([[0.58566234, -1.25499072, 3.10759608]]),
     ),
     _TestCase1d(
-        g1=gaussian.GaussianBasis1d(max_degree=2, exponent=0.5, center=-2.0),
-        g2=gaussian.GaussianBasis1d(max_degree=0, exponent=0.2, center=1.0),
+        g1=sf.GaussianBasis1d(max_degree=2, exponent=0.5, center=-2.0),
+        g2=sf.GaussianBasis1d(max_degree=0, exponent=0.2, center=1.0),
         expected=np.array([[0.58566234], [0.50199629], [0.84861278]]),
     ),
 ]
@@ -98,15 +97,15 @@ _TEST_CASES_1D = [
 #         (y, -sp.oo, sp.oo),
 #         (z, -sp.oo, sp.oo),
 #     )
-#     output.append(float(res.evalf()))s
+#     output.append(float(res.evalf()))
 _TEST_CASES_3D = [
     _TestCase3dSparse(
-        g1=gaussian.GaussianBasis3d(
+        g1=sf.GaussianBasis3d(
             max_degree=2,
             exponent=0.5,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
-        g2=gaussian.GaussianBasis3d(
+        g2=sf.GaussianBasis3d(
             max_degree=3,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
@@ -131,38 +130,14 @@ _TEST_CASES_3D = [
 
 @pytest.mark.parametrize("case", _TEST_CASES_1D)
 def test_overlap_1d(case):
-    S = overlap.overlap_1d(case.g1, case.g2)
+    S = sf.integrals.overlap_1d_jax(case.g1, case.g2)
 
     np.testing.assert_allclose(S, case.expected, rtol=1e-7, atol=1e-7)
 
 
 @pytest.mark.parametrize("case", _TEST_CASES_3D)
-def test_overlap_3d_from_1d(case):
-    S_x = overlap.overlap_1d(
-        gaussian.gaussian_3d_to_1d(case.g1, 0),
-        gaussian.gaussian_3d_to_1d(case.g2, 0),
-    )
-    S_y = overlap.overlap_1d(
-        gaussian.gaussian_3d_to_1d(case.g1, 1),
-        gaussian.gaussian_3d_to_1d(case.g2, 1),
-    )
-    S_z = overlap.overlap_1d(
-        gaussian.gaussian_3d_to_1d(case.g1, 2),
-        gaussian.gaussian_3d_to_1d(case.g2, 2),
-    )
-
-    S = overlap.overlap_3d_from_1d(S_x, S_y, S_z)
-
-    indices = tuple(case.expected_indices.T)
-    actual_values = S[indices]
-    np.testing.assert_allclose(
-        actual_values, case.expected_values, atol=1e-7, rtol=1e-7
-    )
-
-
-@pytest.mark.parametrize("case", _TEST_CASES_3D)
 def test_overlap_3d(case):
-    S = overlap.overlap_3d(case.g1, case.g2)
+    S = sf.integrals.overlap_3d_jax(case.g1, case.g2)
 
     indices = tuple(case.expected_indices.T)
     actual_values = S[indices]
