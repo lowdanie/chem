@@ -17,87 +17,120 @@ class _TestCase1d:
 class _TestCase3dSparse:
     g1: sf.GaussianBasis3d
     g2: sf.GaussianBasis3d
-    expected_indices: np.ndarray  # shape (n, 6)
-    expected_values: np.ndarray  # shape (n,)
+    expected_shape: tuple[int, ...]
+    expected_values: list[tuple[tuple[int, ...], float]]
 
 
 # The expected values were computed using sympy.
-# For a given i,j we compute:
-# >>> import sympy as sp
-# >>> x = sp.symbols('x')
-# >>> integrand = (x+2)**i * (x-1)**j * \
-# ...             sp.exp(-0.5*(x+2)**2) * sp.exp(-0.2*(x-1)**2)
-# >>> res = sp.integrate(integrand, (x, -sp.oo, sp.oo))
-# >>> expected[i, j] = float(res.evalf())
+# import sympy as sp
+# import numpy as np
+#
+# def build_cartesian_gaussian_1d(x, i, a, A):
+#   return (x - A)**i * sp.exp(-a * (x - A)**2)
+#
+# def overlap_1d(i, j, a, b, A, B):
+#   x = sp.symbols('x')
+#   g1 = build_cartesian_gaussian_1d(x, i, a, A)
+#   g2 = build_cartesian_gaussian_1d(x, j, b, B)
+#   integrand = g1 * g2
+#   res = sp.integrate(integrand, (x, -sp.oo, sp.oo))
+#   return float(res.evalf())
+#
+# def overlap_matrix_1d(d1, d2, a, b, A, B):
+#   S = np.zeros((d1+1, d2+1), dtype=np.float64)
+#   for i in range(d1+1):
+#     for j in range(d2+1):
+#       print(f'{i}, {j}')
+#       S[i, j] = overlap_1d(i, j, a, b, A, B)
+#   return S
+#
+# d1 = g1.max_degree
+# d2 = g2.max_degree
+# a = sp.Rational(1, 2)
+# b = sp.Rational(1, 5)
+# A = sp.Integer(-2)
+# B = sp.Integer(1)
+#
+# S = overlap_matrix_1d(g1.max_degree, g2.max_degree, a, b, A, B)
 _TEST_CASES_1D = [
     _TestCase1d(
         g1=sf.GaussianBasis1d(max_degree=2, exponent=0.5, center=-2.0),
         g2=sf.GaussianBasis1d(max_degree=3, exponent=0.2, center=1.0),
         expected=np.array(
             [
-                [0.58566234, -1.25499072, 3.10759608, -8.45197834],
-                [0.50199629, -0.65737609, 0.87080989, -0.58541841],
-                [0.84861278, -1.10131839, 2.02701126, -4.67289341],
+                [
+                    0.5856623378112075,
+                    -1.2549907238811588,
+                    3.1075960781819174,
+                    -8.4519783445057648,
+                ],
+                [
+                    0.5019962895524636,
+                    -0.6573760934615595,
+                    0.8708098900399878,
+                    -0.5854184134722608,
+                ],
+                [
+                    0.8486127751958312,
+                    -1.1013183903446904,
+                    2.0270112566477025,
+                    -4.6728934075375097,
+                ],
             ]
         ),
     ),
     _TestCase1d(
         g1=sf.GaussianBasis1d(max_degree=0, exponent=0.5, center=-2.0),
         g2=sf.GaussianBasis1d(max_degree=0, exponent=0.2, center=1.0),
-        expected=np.array([[0.58566234]]),
+        expected=np.array([[0.5856623378112075]]),
     ),
     _TestCase1d(
         g1=sf.GaussianBasis1d(max_degree=0, exponent=0.5, center=-2.0),
         g2=sf.GaussianBasis1d(max_degree=2, exponent=0.2, center=1.0),
-        expected=np.array([[0.58566234, -1.25499072, 3.10759608]]),
+        expected=np.array(
+            [[0.5856623378112075, -1.2549907238811588, 3.1075960781819174]]
+        ),
     ),
     _TestCase1d(
         g1=sf.GaussianBasis1d(max_degree=2, exponent=0.5, center=-2.0),
         g2=sf.GaussianBasis1d(max_degree=0, exponent=0.2, center=1.0),
-        expected=np.array([[0.58566234], [0.50199629], [0.84861278]]),
+        expected=np.array(
+            [
+                [0.5856623378112075],
+                [0.5019962895524636],
+                [0.8486127751958312],
+            ]
+        ),
     ),
 ]
 
 # The expected values were computed using sympy.
-# def build_cartesian_gaussian(coords, center, exponent, powers):
+# def build_cartesian_gaussian_3d(coords, powers, exponent, center):
 #     x, y, z = coords
 #     cx, cy, cz = center
 #     ix, iy, iz = powers
-#
+
 #     monom = (x - cx) ** ix * (y - cy) ** iy * (z - cz) ** iz
 #     dist_sq = (x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2
 #     return monom * sp.exp(-exponent * dist_sq)
 #
-# powers_array1 = expected_indices[:, :3]
-# powers_array2 = expected_indices[:, 3:]
+# def overlap_3d(powers1, powers2, a, b, A, B):
+#   coords = sp.symbols('x,y,z')
+#   x, y, z = coords
 #
-# coords = sp.symbols("x,y,z")
-# x, y, z = coords
+#   g1 = build_cartesian_gaussian_3d(coords, powers1, a, A)
+#   g2 = build_cartesian_gaussian_3d(coords, powers2, b, B)
+#   integrand = g1 * g2
+#   res = sp.integrate(integrand, (x, -sp.oo, sp.oo), (y, -sp.oo, sp.oo), (z, -sp.oo, sp.oo))
+#   return float(res.evalf())
 #
-# expected_values = []
+# a = sp.Rational(1, 2)
+# b = sp.Rational(1, 5)
+# A = sp.Integer(-2)
+# B = sp.Integer(1)
 #
-# for powers1, powers2 in zip(powers_array1, powers_array2):
-#     cg1 = build_cartesian_gaussian(
-#         coords,
-#         g1.center,
-#         g1.exponent,
-#         powers1,
-#     )
-#     cg2 = build_cartesian_gaussian(
-#         coords,
-#         g2.center,
-#         g2.exponent,
-#         powers2,
-#     )
-#     integrand = cg1 * cg2
-#
-#     res = sp.integrate(
-#         integrand,
-#         (x, -sp.oo, sp.oo),
-#         (y, -sp.oo, sp.oo),
-#         (z, -sp.oo, sp.oo),
-#     )
-#     output.append(float(res.evalf()))
+# # The expected value of (ix, iy, iz, jx, jy, jz) is:
+# expected = overlap_3d((ix, iy, iz), (jx, jy, jz), a, b, A, B)
 _TEST_CASES_3D = [
     _TestCase3dSparse(
         g1=sf.GaussianBasis3d(
@@ -110,21 +143,52 @@ _TEST_CASES_3D = [
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
         ),
-        expected_indices=np.array(
-            [
-                [2, 1, 0, 1, 0, 1],
-                [0, 0, 0, 0, 0, 0],
-                [2, 2, 2, 3, 3, 3],
-            ]
+        expected_shape=(3, 3, 3, 4, 4, 4),
+        expected_values=[
+            ((2, 1, 0, 1, 0, 1), -1.286743800702015),
+            ((0, 1, 2, 2, 1, 0), -0.4723760464371185),
+            ((0, 0, 0, 0, 0, 0), 0.8382288007131306),
+            ((1, 1, 1, 1, 1, 1), -0.00979663746381656),
+            ((2, 2, 2, 2, 2, 2), 7.020504702738119),
+            ((2, 2, 2, 3, 3, 3), 98.95957347011944),
+            ((0, 0, 0, 3, 3, 3), 432.10882854250946),
+            ((2, 2, 2, 0, 0, 0), 1.3157489724221587),
+        ],
+    ),
+    _TestCase3dSparse(
+        g1=sf.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.5,
+            center=np.array([-2.0, 0.0, 1.0]),
         ),
-        expected_values=np.array(
-            [
-                -1.28674380,
-                0.83822880,
-                98.95957347,
-            ]
+        g2=sf.GaussianBasis3d(
+            max_degree=3,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
         ),
-    )
+        expected_shape=(1, 1, 1, 4, 4, 4),
+        expected_values=[
+            ((0, 0, 0, 0, 0, 0), 0.8382288007131306),
+            ((0, 0, 0, 3, 3, 3), 432.10882854250946),
+        ],
+    ),
+    _TestCase3dSparse(
+        g1=sf.GaussianBasis3d(
+            max_degree=2,
+            exponent=0.5,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=sf.GaussianBasis3d(
+            max_degree=0,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        expected_shape=(3, 3, 3, 1, 1, 1),
+        expected_values=[
+            ((0, 0, 0, 0, 0, 0), 0.8382288007131306),
+            ((2, 2, 2, 0, 0, 0), 1.3157489724221587),
+        ],
+    ),
 ]
 
 
@@ -132,15 +196,14 @@ _TEST_CASES_3D = [
 def test_overlap_1d(case):
     S = sf.integrals.overlap_1d_jax(case.g1, case.g2)
 
-    np.testing.assert_allclose(S, case.expected, rtol=1e-7, atol=1e-7)
+    np.testing.assert_allclose(S, case.expected, rtol=1e-14, atol=1e-15)
 
 
 @pytest.mark.parametrize("case", _TEST_CASES_3D)
 def test_overlap_3d(case):
     S = sf.integrals.overlap_3d_jax(case.g1, case.g2)
+    assert S.shape == case.expected_shape
 
-    indices = tuple(case.expected_indices.T)
-    actual_values = S[indices]
-    np.testing.assert_allclose(
-        actual_values, case.expected_values, atol=1e-7, rtol=1e-7
-    )
+    for coords, expected in case.expected_values:
+        actual = S[coords]
+        np.testing.assert_allclose(actual, expected, rtol=1e-14, atol=1e-15)

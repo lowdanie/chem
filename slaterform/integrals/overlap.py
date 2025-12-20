@@ -70,9 +70,10 @@ def _vertical_transfer(
     Returns:
       An array S[:,0] of shape (g1.max_degree + g2.max_degree + 1,).
     """
-    p = g1.exponent + g2.exponent
-    P = (g1.exponent * g1.center + g2.exponent * g2.center) / p
-    params = _VerticalTransferParams(PA=P - g1.center, inv_2p=1 / (2 * p))
+    p = jnp.asarray(g1.exponent + g2.exponent)
+    P = jnp.asarray((g1.exponent * g1.center + g2.exponent * g2.center) / p)
+    A = jnp.asarray(g1.center)
+    params = _VerticalTransferParams(PA=P - A, inv_2p=1 / (2 * p))
     step_fn = functools.partial(_vertical_transfer_step, params)
 
     init_carry = (s_base, jnp.zeros_like(s_base))
@@ -125,7 +126,7 @@ def _horizontal_transfer(
       The full overlap matrix S of shape (N, g2.max_degree + 1).
       S[i,j] is valid for 0 <= i < N - j.
     """
-    AB = g1.center - g2.center
+    AB = jnp.asarray(g1.center - g2.center)
     params = _HorizontalTransferParams(AB=AB)
     step_fn = functools.partial(_horizontal_transfer_step, params)
 
