@@ -58,25 +58,13 @@ def gaussian_3d_to_1d(g: GaussianBasis3d, dim: int) -> GaussianBasis1d:
     )
 
 
-def overlap_prefactor_1d_jax(
-    g1: GaussianBasis1d, g2: GaussianBasis1d
-) -> jax.Array:
+def overlap_prefactor_1d(g1: GaussianBasis1d, g2: GaussianBasis1d) -> jax.Array:
     mu = (g1.exponent * g2.exponent) / (g1.exponent + g2.exponent)
     diff = g1.center - g2.center
     return jnp.exp(-mu * jnp.square(diff))
 
 
-def overlap_prefactor_1d(g1: GaussianBasis1d, g2: GaussianBasis1d) -> float:
-    return float(overlap_prefactor_1d_jax(g1, g2))
-
-
-def overlap_prefactor_3d_jax(
-    g1: GaussianBasis3d, g2: GaussianBasis3d
-) -> jax.Array:
+def overlap_prefactor_3d(g1: GaussianBasis3d, g2: GaussianBasis3d) -> jax.Array:
     mu = (g1.exponent * g2.exponent) / (g1.exponent + g2.exponent)
     diff = g1.center - g2.center
     return jnp.exp(-mu * jnp.dot(diff, diff))
-
-
-def overlap_prefactor_3d(g1: GaussianBasis3d, g2: GaussianBasis3d) -> float:
-    return float(overlap_prefactor_3d_jax(g1, g2))

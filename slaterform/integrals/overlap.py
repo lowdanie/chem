@@ -13,7 +13,7 @@ def _base_case(
     g1: gaussian.GaussianBasis1d, g2: gaussian.GaussianBasis1d
 ) -> jax.Array:
     p = g1.exponent + g2.exponent
-    K = gaussian.overlap_prefactor_1d_jax(g1, g2)
+    K = gaussian.overlap_prefactor_1d(g1, g2)
     return jnp.sqrt(np.pi / p) * K
 
 

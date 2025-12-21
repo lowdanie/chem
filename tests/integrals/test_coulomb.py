@@ -4,8 +4,7 @@ import os
 
 import numpy as np
 
-from slaterform.integrals import coulomb
-from slaterform.integrals import gaussian
+import slaterform as sf
 
 
 @dataclasses.dataclass
@@ -17,8 +16,8 @@ class _BoysTestCase:
 
 @dataclasses.dataclass
 class OneElectronTestCase:
-    g1: coulomb.gaussian.GaussianBasis3d
-    g2: coulomb.gaussian.GaussianBasis3d
+    g1: sf.GaussianBasis3d
+    g2: sf.GaussianBasis3d
     C: np.ndarray
     expected_shape: tuple[int, int, int, int, int, int]
     expected_values: dict[tuple[int, int, int, int, int, int], float]
@@ -26,10 +25,10 @@ class OneElectronTestCase:
 
 @dataclasses.dataclass
 class TwoElectronTestCase:
-    g1: coulomb.gaussian.GaussianBasis3d
-    g2: coulomb.gaussian.GaussianBasis3d
-    g3: coulomb.gaussian.GaussianBasis3d
-    g4: coulomb.gaussian.GaussianBasis3d
+    g1: sf.GaussianBasis3d
+    g2: sf.GaussianBasis3d
+    g3: sf.GaussianBasis3d
+    g4: sf.GaussianBasis3d
     expected_shape: tuple[int, ...]
     expected_values: dict[tuple[int, ...], float]
 
@@ -67,12 +66,12 @@ _BOYS_TEST_CASES = [
 # expected, _ = integrate.nquad(f, ranges=[[-6, 6]]*3)
 _ONE_ELECTRON_TEST_CASES = [
     OneElectronTestCase(
-        g1=gaussian.GaussianBasis3d(
+        g1=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.5,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
-        g2=gaussian.GaussianBasis3d(
+        g2=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
@@ -84,12 +83,12 @@ _ONE_ELECTRON_TEST_CASES = [
         },
     ),
     OneElectronTestCase(
-        g1=gaussian.GaussianBasis3d(
+        g1=sf.GaussianBasis3d(
             max_degree=1,
             exponent=0.5,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
-        g2=gaussian.GaussianBasis3d(
+        g2=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
@@ -102,12 +101,12 @@ _ONE_ELECTRON_TEST_CASES = [
         },
     ),
     OneElectronTestCase(
-        g1=gaussian.GaussianBasis3d(
+        g1=sf.GaussianBasis3d(
             max_degree=2,
             exponent=0.5,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
-        g2=gaussian.GaussianBasis3d(
+        g2=sf.GaussianBasis3d(
             max_degree=3,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
@@ -136,22 +135,22 @@ _ONE_ELECTRON_TEST_CASES = [
 # >>>    g4.center, 1, coords[9:], g4.exponent)
 _TWO_ELECTRON_TEST_CASES = [
     TwoElectronTestCase(
-        g1=gaussian.GaussianBasis3d(
+        g1=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.1,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
-        g2=gaussian.GaussianBasis3d(
+        g2=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
         ),
-        g3=gaussian.GaussianBasis3d(
+        g3=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.3,
             center=np.array([2.0, 1.0, -1.0]),
         ),
-        g4=gaussian.GaussianBasis3d(
+        g4=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.4,
             center=np.array([0.0, -1.0, 2.0]),
@@ -162,22 +161,22 @@ _TWO_ELECTRON_TEST_CASES = [
         },
     ),
     TwoElectronTestCase(
-        g1=gaussian.GaussianBasis3d(
+        g1=sf.GaussianBasis3d(
             max_degree=1,
             exponent=0.1,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
-        g2=gaussian.GaussianBasis3d(
+        g2=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
         ),
-        g3=gaussian.GaussianBasis3d(
+        g3=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.3,
             center=np.array([2.0, 1.0, -1.0]),
         ),
-        g4=gaussian.GaussianBasis3d(
+        g4=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.4,
             center=np.array([0.0, -1.0, 2.0]),
@@ -189,22 +188,22 @@ _TWO_ELECTRON_TEST_CASES = [
         },
     ),
     TwoElectronTestCase(
-        g1=gaussian.GaussianBasis3d(
+        g1=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.1,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
-        g2=gaussian.GaussianBasis3d(
+        g2=sf.GaussianBasis3d(
             max_degree=1,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
         ),
-        g3=gaussian.GaussianBasis3d(
+        g3=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.3,
             center=np.array([2.0, 1.0, -1.0]),
         ),
-        g4=gaussian.GaussianBasis3d(
+        g4=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.4,
             center=np.array([0.0, -1.0, 2.0]),
@@ -216,22 +215,22 @@ _TWO_ELECTRON_TEST_CASES = [
         },
     ),
     TwoElectronTestCase(
-        g1=gaussian.GaussianBasis3d(
+        g1=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.1,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
-        g2=gaussian.GaussianBasis3d(
+        g2=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
         ),
-        g3=gaussian.GaussianBasis3d(
+        g3=sf.GaussianBasis3d(
             max_degree=1,
             exponent=0.3,
             center=np.array([2.0, 1.0, -1.0]),
         ),
-        g4=gaussian.GaussianBasis3d(
+        g4=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.4,
             center=np.array([0.0, -1.0, 2.0]),
@@ -243,22 +242,22 @@ _TWO_ELECTRON_TEST_CASES = [
         },
     ),
     TwoElectronTestCase(
-        g1=gaussian.GaussianBasis3d(
+        g1=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.1,
             center=np.array([-2.0, 0.0, 1.0]),
         ),
-        g2=gaussian.GaussianBasis3d(
+        g2=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.2,
             center=np.array([1.0, 2.0, -1.0]),
         ),
-        g3=gaussian.GaussianBasis3d(
+        g3=sf.GaussianBasis3d(
             max_degree=0,
             exponent=0.3,
             center=np.array([2.0, 1.0, -1.0]),
         ),
-        g4=gaussian.GaussianBasis3d(
+        g4=sf.GaussianBasis3d(
             max_degree=1,
             exponent=0.4,
             center=np.array([0.0, -1.0, 2.0]),
@@ -269,24 +268,58 @@ _TWO_ELECTRON_TEST_CASES = [
             (0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0): 1.7859786090561764,
         },
     ),
+    TwoElectronTestCase(
+        g1=sf.GaussianBasis3d(
+            max_degree=1,
+            exponent=0.1,
+            center=np.array([-2.0, 0.0, 1.0]),
+        ),
+        g2=sf.GaussianBasis3d(
+            max_degree=1,
+            exponent=0.2,
+            center=np.array([1.0, 2.0, -1.0]),
+        ),
+        g3=sf.GaussianBasis3d(
+            max_degree=1,
+            exponent=0.3,
+            center=np.array([2.0, 1.0, -1.0]),
+        ),
+        g4=sf.GaussianBasis3d(
+            max_degree=1,
+            exponent=0.4,
+            center=np.array([0.0, -1.0, 2.0]),
+        ),
+        expected_shape=(2,) * 3 + (2,) * 3 + (2,) * 3 + (2,) * 3,
+        expected_values={
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0): 2.2635736015604326,
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0): 1.7859786090561764,
+            (1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0): -0.9776795714262435,
+            (1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0): -5.643744873448038,
+            (0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0): -2.5782646240930593,
+            (0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0): 0.9419537701948736,
+            (0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1): -1.2763270734987182,
+            (0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1): -2.3603624987987604,
+            (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1): 0.021877614280173558,
+        },
+    ),
     pytest.param(
         TwoElectronTestCase(
-            g1=gaussian.GaussianBasis3d(
+            g1=sf.GaussianBasis3d(
                 max_degree=3,
                 exponent=0.1,
                 center=np.array([-2.0, 0.0, 1.0]),
             ),
-            g2=gaussian.GaussianBasis3d(
+            g2=sf.GaussianBasis3d(
                 max_degree=3,
                 exponent=0.2,
                 center=np.array([1.0, 2.0, -1.0]),
             ),
-            g3=gaussian.GaussianBasis3d(
+            g3=sf.GaussianBasis3d(
                 max_degree=3,
                 exponent=0.3,
                 center=np.array([2.0, 1.0, -1.0]),
             ),
-            g4=gaussian.GaussianBasis3d(
+            g4=sf.GaussianBasis3d(
                 max_degree=3,
                 exponent=0.4,
                 center=np.array([0.0, -1.0, 2.0]),
@@ -326,7 +359,7 @@ _TWO_ELECTRON_TEST_CASES = [
 
 @pytest.mark.parametrize("case", _BOYS_TEST_CASES)
 def test_boys(case):
-    actual = coulomb.boys(case.n, case.x)
+    actual = sf.integrals.boys(case.n, case.x)
     np.testing.assert_almost_equal(
         actual,
         case.expected,
@@ -336,7 +369,7 @@ def test_boys(case):
 
 @pytest.mark.parametrize("case", _ONE_ELECTRON_TEST_CASES)
 def test_one_electron(case):
-    I = coulomb.one_electron(case.g1, case.g2, case.C)
+    I = sf.integrals.one_electron_jax(case.g1, case.g2, case.C)
     assert I.shape == case.expected_shape
 
     for coord, expected in case.expected_values.items():
@@ -346,7 +379,7 @@ def test_one_electron(case):
 
 @pytest.mark.parametrize("case", _TWO_ELECTRON_TEST_CASES)
 def test_two_electron(case):
-    I = coulomb.two_electron(case.g1, case.g2, case.g3, case.g4)
+    I = sf.integrals.two_electron_jax(case.g1, case.g2, case.g3, case.g4)
     assert I.shape == case.expected_shape
 
     for coord, expected in case.expected_values.items():
