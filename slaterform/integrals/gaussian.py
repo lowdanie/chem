@@ -51,15 +51,8 @@ class GaussianBasis3d:
         )
 
 
-def gaussian_3d_to_1d_jax(g: GaussianBasis3d, dim: int) -> GaussianBasis1d:
-    center = jnp.asarray(g.center)
-    return GaussianBasis1d(
-        max_degree=g.max_degree, exponent=g.exponent, center=center[dim]
-    )
-
-
 def gaussian_3d_to_1d(g: GaussianBasis3d, dim: int) -> GaussianBasis1d:
-    center = np.asarray(g.center)
+    center = jnp.asarray(g.center)
     return GaussianBasis1d(
         max_degree=g.max_degree, exponent=g.exponent, center=center[dim]
     )

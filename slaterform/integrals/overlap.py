@@ -137,7 +137,7 @@ def _horizontal_transfer(
 
 
 @jit
-def overlap_1d_jax(
+def overlap_1d(
     g1: gaussian.GaussianBasis1d, g2: gaussian.GaussianBasis1d
 ) -> jax.Array:
     """Computes the 1D overlap matrix between two Gaussians.
@@ -200,26 +200,15 @@ def overlap_3d_jax(
     Returns:
         A 6-dimensional array S with shape: (L1+1, L1+1, L1+1, L2+1, L2+1, L2+1)
     """
-    S_x = overlap_1d_jax(
-        gaussian.gaussian_3d_to_1d_jax(g1, 0),
-        gaussian.gaussian_3d_to_1d_jax(g2, 0),
-    )
-    S_y = overlap_1d_jax(
-        gaussian.gaussian_3d_to_1d_jax(g1, 1),
-        gaussian.gaussian_3d_to_1d_jax(g2, 1),
-    )
-    S_z = overlap_1d_jax(
-        gaussian.gaussian_3d_to_1d_jax(g1, 2),
-        gaussian.gaussian_3d_to_1d_jax(g2, 2),
-    )
+    S_x, S_y, S_z = [
+        overlap_1d(
+            gaussian.gaussian_3d_to_1d(g1, i),
+            gaussian.gaussian_3d_to_1d(g2, i),
+        )
+        for i in range(3)
+    ]
 
     return _overlap_3d_from_1d(S_x, S_y, S_z)
-
-
-def overlap_1d(
-    g1: gaussian.GaussianBasis1d, g2: gaussian.GaussianBasis1d
-) -> np.ndarray:
-    return np.array(overlap_1d_jax(g1, g2))
 
 
 def overlap_3d(

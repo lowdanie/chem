@@ -1,134 +1,117 @@
+import jax
+from jax import jit
+import jax.numpy as jnp
 import numpy as np
 
 from slaterform.integrals import gaussian
 from slaterform.integrals import overlap
 
 
-def kinetic_1d_from_overlap_1d(
-    S: np.ndarray,
-    g1: gaussian.GaussianBasis1d,
-    g2: gaussian.GaussianBasis1d,
-) -> np.ndarray:
+def _kinetic_1d_from_overlap_1d(
+    S: jax.Array,
+    b: jax.Array,
+) -> jax.Array:
+    """Computes 1D kinetic energy integrals using recurrence on overlap integrals.
+
+    Formula:
+    T[i, j] = j(j-1)S[i, j-2] - 2b(2j+1)S[i, j] + 4b^2 S[i, j+2]
+
+    Args:
+        S: The 1D overlap matrix. Shape: (nrows, ncols) with ncols >= 3.
+        b: The exponent of the 2nd Gaussian basis function.
+
+    Returns:
+        The kinetic energy matrix T.
+        Shape: (nrows, ncols-2)
     """
-    We assume that S = overlap_1d(g1, g2)
-    The output T has shape (S.shape[0], S.shape[1] - 2).
+    # The output T has shape (S.shape[0], S.shape[1]-2)
+    nrows_t, ncols_t = S.shape[0], S.shape[1] - 2
 
-    Set:
-    d1 = g1.max_degree
-    a = g1.exponent
-    A = g1.center
-    d2 = g2.max_degree
-    b = g2.exponent
-    B = g2.center
+    # Create the j index vector corresponding to the columns of T.
+    # Shape: (1, ncols_t)
+    j_vec = jnp.arange(ncols_t)[None, :]
 
-    For each 0 <= i < d1 and 0 <= j <d2 - 2:
-    T[i,j] = integral (x-A)^i e^(-a(x-A)^2) (d^2/dx^2) [(x-B)^j e^(-b(x-B)^2)] dx
+    # Term 1: j(j-1) * S[i, j-2]
+    # This term is only non-zero for j >= 2. In particular, this term
+    # is only needed when S.shape[1] > 4.
+    # We compute the values for j >= 2 and pad the first two columns with zeros.
+    if ncols_t > 2:
+        term1_vals = (j_vec[:, 2:] * (j_vec[:, 2:] - 1)) * S[:, :-4]
+        term1 = jnp.pad(term1_vals, ((0, 0), (2, 0)))
+    else:
+        term1 = jnp.zeros((nrows_t, ncols_t), dtype=S.dtype)
 
-    where the integral is over all space.
+    # Term 2: -2b(2j + 1) * S[i, j]
+    term2 = -2 * b * (2 * j_vec + 1) * S[:, :-2]
 
-    We use the formula:
-    T[i, j] = j(j-1)S[i,j-2] -  2b(2j + 1)S[i,j] + 4b**2 S[i,j+2]
+    # Term 3: 4b^2 * S[i, j+2]
+    # This term accesses S at indices 2, 3, ..., M-1.
+    term3 = 4 * b**2 * S[:, 2:]
+
+    return term1 + term2 + term3
+
+
+def _kinetic_3d_from_overlap_1d(
+    S_x: jax.Array,
+    S_y: jax.Array,
+    S_z: jax.Array,
+    b: jax.Array,
+) -> jax.Array:
+    """Computes a 3d kinetic energy matrix from the 1d overlap matrices.
+
+    Formula:
+      T[ix, iy, iz, jx, jy, jz] =
+          T_x[ix, jx] * S_y[iy, jy] * S_z[iz, jz] +
+          S_x[ix, jx] * T_y[iy, jy] * S_z[iz, jz] +
+          S_x[ix, jx] * S_y[iy, jy] * T_z[iz, jz]
+    Args:
+      S_x, S_y, S_z: The 1d overlap matrices.
+        They all have the same shape (nrows, ncols) with ncols >= 3.
+      b: The exponent of the 2nd Gaussian basis function.
+
+    Returns:
+      A 6-dimensional array T with shape
+      (nrows, nrows, nrows, ncols-2, ncols-2, ncols-2)
     """
-    if S.shape != (g1.max_degree + 1, g2.max_degree + 1):
-        raise ValueError(
-            f"Expected S.shape to be {(g1.max_degree + 1, g2.max_degree + 1)}, got {S.shape}"
-        )
+    T_x = _kinetic_1d_from_overlap_1d(S_x, b)
+    T_y = _kinetic_1d_from_overlap_1d(S_y, b)
+    T_z = _kinetic_1d_from_overlap_1d(S_z, b)
 
-    if g2.max_degree < 2:
-        return np.empty((S.shape[0], 0), dtype=S.dtype)
+    # T_x[ix, jx] * S_y[iy, jy] * S_z[iz, jz]
+    term_x = jnp.einsum("ad,be,cf->abcdef", T_x, S_y[:, :-2], S_z[:, :-2])
 
-    T = np.zeros((S.shape[0], S.shape[1] - 2), dtype=S.dtype)
+    # S_x[ix, jx] * T_y[iy, jy] * S_z[iz, jz]
+    term_y = jnp.einsum("ad,be,cf->abcdef", S_x[:, :-2], T_y, S_z[:, :-2])
 
-    b = g2.exponent
-    j_array = np.arange(T.shape[1])[np.newaxis, :]
+    # S_x[ix, jx] * S_y[iy, jy] * T_z[iz, jz]
+    term_z = jnp.einsum("ad,be,cf->abcdef", S_x[:, :-2], S_y[:, :-2], T_z)
 
-    T[:, 2:] += (j_array[:, 2:] * (j_array[:, 2:] - 1)) * S[:, :-4]
-    T[:, :] -= 2 * b * (2 * j_array + 1) * S[:, :-2]
-    T[:, :] += 4 * b**2 * S[:, 2:]
-
-    return T
+    return term_x + term_y + term_z
 
 
-def kinetic_3d_from_overlap_1d(
-    S_x: np.ndarray,
-    S_y: np.ndarray,
-    S_z: np.ndarray,
-    g1: gaussian.GaussianBasis3d,
-    g2: gaussian.GaussianBasis3d,
-) -> np.ndarray:
-    """
-    We assume that:
-    S_x = overlap_1d(g1_x, g2_x)
-    S_y = overlap_1d(g1_y, g2_y)
-    S_z = overlap_1d(g1_z, g2_z)
-
-    where g1_x, g1_y, g1_z are the 1d Gaussian basis functions corresponding to
-    g1 and similarly for g2.
-
-    Set
-    d1 = g1.max_degree, d2 = g2.max_degree
-    a = g1.exponent, b = g2.exponent
-    A = g1.center, B = g2.center
-
-    Then the output T has shape
-    (d1 + 1, d1 + 1, d1 + 1, d2 - 1, d2 - 1, d2 - 1)
-
-    And is defined by:
-
-    T[ix, iy, iz, jx, jy, jz] =
-        integral integral integral
-            (x-Ax)^ix (y-Ay)^iy (z-Az)^iz e^(-a((x-Ax)^2+(y-Ay)^2+(z-Az)^2))
-            (d^2/dx^2 + d^2/dy^2 + d^2/dz^2)
-            [(x-Bx)^jx (y-By)^jy (z-Bz)^jz e^(-b((x-Bx)^2+(y-By)^2+(z-Bz)^2))]
-        dx dy dz
-
-    where the integral is over all space.
-
-    We use the formula:
-    T[ix, iy, iz, jx, jy, jz] =
-        T_x[ix, jx] * S_y[iy, jy] * S_z[iz, jz] +
-        S_x[ix, jx] * T_y[iy, jy] * S_z[iz, jz] +
-        S_x[ix, jx] * S_y[iy, jy] * T_z[iz, jz]
-    """
-    T_x = kinetic_1d_from_overlap_1d(
-        S_x,
-        gaussian.gaussian_3d_to_1d(g1, 0),
-        gaussian.gaussian_3d_to_1d(g2, 0),
-    )
-    T_y = kinetic_1d_from_overlap_1d(
-        S_y,
-        gaussian.gaussian_3d_to_1d(g1, 1),
-        gaussian.gaussian_3d_to_1d(g2, 1),
-    )
-    T_z = kinetic_1d_from_overlap_1d(
-        S_z,
-        gaussian.gaussian_3d_to_1d(g1, 2),
-        gaussian.gaussian_3d_to_1d(g2, 2),
-    )
-
-    d1 = g1.max_degree
-    d2 = g2.max_degree
-
-    T = np.zeros((d1 + 1, d1 + 1, d1 + 1, d2 - 1, d2 - 1, d2 - 1))
-
-    T += np.einsum("ad,be,cf->abcdef", T_x, S_y[:, :-2], S_z[:, :-2])
-    T += np.einsum("ad,be,cf->abcdef", S_x[:, :-2], T_y, S_z[:, :-2])
-    T += np.einsum("ad,be,cf->abcdef", S_x[:, :-2], S_y[:, :-2], T_z)
-
-    return T
-
-
-def kinetic_3d(
+@jit
+def kinetic_3d_jax(
     g1: gaussian.GaussianBasis3d, g2: gaussian.GaussianBasis3d
-) -> np.ndarray:
-    """Computes the 3D Kinetic Energy matrix.
+) -> jax.Array:
+    """Calculates the matrix elements of the Laplacian operator.
 
-    This acts as a wrapper around the `kinetic_3d_from_overlap_1d` kernel.
-    It bumps up the g2 basis by +2 angular momentum so that
-    the output has the correct shape (d2 + 1).
+    Formula:
+        G1(x,y,z) = (x-Ax)^ix (y-Ay)^iy (z-Az)^iz e^(-a((x-Ax)^2+(y-Ay)^2+(z-Az)^2))
+        G2(x,y,z) = (x-Bx)^jx (y-By)^jy (z-Bz)^jz e^(-b((x-Bx)^2+(y-By)^2+(z-Bz)^2))
 
-    The output is an an array with shape
-    (d1+1, d1+1, d1+1, d2+1, d2+1, d2+1)
+        T[ix,iy,iz,jx,jy,jz] = integral
+            G1(x1,y1,z1) * (d^2/dx^2 + d^2/dy^2 + d^2/dz^2)G2(x1,y1,z1)
+            dx1 dy1 dz1 dx2 dy2 dz2
+
+    Note: If you need the kinetic energy Hamiltonian, multiply the output of this
+      function by -0.5.
+
+    Args:
+        g1: The first 3D Gaussian basis shell (center A, exponent alpha, max degree L_1).
+        g2: The second 3D Gaussian basis shell (center B, exponent beta, max degree L_2).
+
+    Returns:
+        A 6-dimensional array S with shape: (L1+1, L1+1, L1+1, L2+1, L2+1, L2+1)
     """
 
     # Increase the degree of g2 by +2
@@ -149,4 +132,10 @@ def kinetic_3d(
     S_y = overlap.overlap_1d(g1y, g2y)
     S_z = overlap.overlap_1d(g1z, g2z)
 
-    return kinetic_3d_from_overlap_1d(S_x, S_y, S_z, g1, g2_boosted)
+    return _kinetic_3d_from_overlap_1d(S_x, S_y, S_z, jnp.asarray(g2.exponent))
+
+
+def kinetic_3d(
+    g1: gaussian.GaussianBasis3d, g2: gaussian.GaussianBasis3d
+) -> np.ndarray:
+    return np.array(kinetic_3d_jax(g1, g2))

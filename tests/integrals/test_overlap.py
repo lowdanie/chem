@@ -194,7 +194,7 @@ _TEST_CASES_3D = [
 
 @pytest.mark.parametrize("case", _TEST_CASES_1D)
 def test_overlap_1d(case):
-    S = sf.integrals.overlap_1d_jax(case.g1, case.g2)
+    S = sf.integrals.overlap_1d(case.g1, case.g2)
 
     np.testing.assert_allclose(S, case.expected, rtol=1e-14, atol=1e-15)
 
