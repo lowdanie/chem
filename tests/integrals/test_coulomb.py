@@ -41,12 +41,16 @@ class TwoElectronTestCase:
 # >>> expected = float(res.evalf())
 _BOYS_TEST_CASES = [
     _BoysTestCase(n=0, x=0.0, expected=1.0),
+    _BoysTestCase(n=0, x=1e-13, expected=0.9999999999999667),
     _BoysTestCase(n=0, x=1.0, expected=0.746824132812427),
     _BoysTestCase(n=1, x=0.0, expected=0.3333333333333333),
+    _BoysTestCase(n=1, x=1e-13, expected=0.33333333333331333),
     _BoysTestCase(n=1, x=1.0, expected=0.18947234582049235),
     _BoysTestCase(n=1, x=10.0, expected=0.014010099528844014),
     _BoysTestCase(n=5, x=0.0, expected=0.09090909090909091),
+    _BoysTestCase(n=5, x=1e-13, expected=0.09090909090908322),
     _BoysTestCase(n=5, x=1.0, expected=0.03936486451348416),
+    _BoysTestCase(n=5, x=10.0, expected=0.00007900874987586),
 ]
 
 # The expected values were computed with scipy.integrate:
@@ -360,11 +364,7 @@ _TWO_ELECTRON_TEST_CASES = [
 @pytest.mark.parametrize("case", _BOYS_TEST_CASES)
 def test_boys(case):
     actual = sf.integrals.boys(case.n, case.x)
-    np.testing.assert_almost_equal(
-        actual,
-        case.expected,
-        decimal=12,
-    )
+    np.testing.assert_allclose(actual, case.expected, atol=1e-17)
 
 
 @pytest.mark.parametrize("case", _ONE_ELECTRON_TEST_CASES)
