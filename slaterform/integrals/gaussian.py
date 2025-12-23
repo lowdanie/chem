@@ -13,8 +13,8 @@ from slaterform import types
 @dataclasses.dataclass(frozen=True)
 class GaussianBasis1d:
     max_degree: int
-    exponent: types.Array
-    center: types.Array
+    exponent: types.Scalar
+    center: types.Scalar
 
     def tree_flatten(self):
         children = (self.exponent, self.center)
@@ -34,8 +34,8 @@ class GaussianBasis1d:
 @dataclasses.dataclass
 class GaussianBasis3d:
     max_degree: int
-    exponent: types.Array
-    center: types.Array  # shape (3,)
+    exponent: types.Scalar
+    center: types.Position3D  # shape (3,)
 
     def tree_flatten(self):
         children = (self.exponent, self.center)

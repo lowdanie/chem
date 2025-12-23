@@ -1,5 +1,8 @@
+import jax
+import jax.numpy as jnp
 import numpy as np
 
+from slaterform import types
 from slaterform.integrals import overlap
 from slaterform.integrals import gaussian
 
@@ -44,15 +47,16 @@ def generate_cartesian_powers(l: int) -> np.ndarray:
 
 
 def compute_normalization_constants(
-    a: float, max_degree: int, powers: np.ndarray
-) -> np.ndarray:
+    max_degree: int, powers: types.IntArray, a: types.Scalar
+) -> jax.Array:
     """Computes the L^2 norms of the primitive Cartesian Gaussians
 
     Args:
-        a: The exponent of the Gaussian primitives.
         max_degree: The maximum angular momentum degree.
         powers: A numpy array of shape (N, 3) containing the Cartesian
                 powers (i, j, k) for each basis function.
+        a: The exponent of the Gaussian primitives.
+
 
     Returns:
         A numpy array of shape (N,) containing the L^2 norms of each
@@ -61,9 +65,9 @@ def compute_normalization_constants(
     g = gaussian.GaussianBasis3d(
         max_degree=max_degree,
         exponent=a,
-        center=np.zeros(3),
+        center=jnp.zeros(3),
     )
 
     S = overlap.overlap_3d(g, g)  # shape (max_degree+1,) * 6
     ix, iy, iz = powers.T
-    return 1.0 / np.sqrt(S[ix, iy, iz, ix, iy, iz])
+    return 1.0 / jnp.sqrt(S[ix, iy, iz, ix, iy, iz])

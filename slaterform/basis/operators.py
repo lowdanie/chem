@@ -1,10 +1,14 @@
 import dataclasses
 import itertools
-from typing import Callable
-
+from typing import Callable, NamedTuple
+import functools
+import jax
+from jax import jit
+import jax.numpy as jnp
 import numpy as np
 
 from slaterform.basis import basis_block
+from slaterform.basis import broadcasting
 from slaterform.integrals import gaussian
 
 # A one-electron operator between two BasisBlocks.
@@ -32,63 +36,109 @@ TwoElectronOperator = Callable[
 ]
 
 
+class _PairIntegralParams(NamedTuple):
+    max_degree1: int
+    max_degree2: int
+    center1: jax.Array
+    center2: jax.Array
+    cartesian_indices: tuple[jax.Array, ...]
+    operator: OneElectronOperator
+
+
+def _compute_pair_integral(
+    params: _PairIntegralParams, exponent1: jax.Array, exponent2: jax.Array
+) -> jax.Array:
+    """Computes the one-electron integral tensor between two primitive
+    Cartesian Gaussians.
+
+    Returns:
+        A jax array of shape (n_cart1, n_cart2)
+    """
+    g1 = gaussian.GaussianBasis3d(params.max_degree1, exponent1, params.center1)
+    g2 = gaussian.GaussianBasis3d(params.max_degree2, exponent2, params.center2)
+
+    raw_tensor = params.operator(g1, g2)
+    return raw_tensor[params.cartesian_indices]
+
+
+def one_electron_matrix_jax(
+    block1: basis_block.BasisBlock,
+    block2: basis_block.BasisBlock,
+    operator: OneElectronOperator,
+) -> jax.Array:
+    """Computes the overlap matrix between two BasisBlocks.
+
+    Returns:
+        A jax array of shape (N_basis1, N_basis2) where N_basis1 is the
+        number of basis functions in block1 and N_basis2 is the number of basis
+        functions in block2.
+    """
+    # Indices used to broadcast tensors to matrices.
+    cartesian_indices = broadcasting.broadcast_indices(
+        block1.cartesian_powers, block2.cartesian_powers
+    )
+
+    # Generate all pairs of exponents.
+    # flat_exps1 and flat_exps2 have shape (n_exps1*n_exps2,)
+    flat_exps1, flat_exps2 = broadcasting.flat_product(
+        block1.exponents, block2.exponents
+    )
+
+    params = _PairIntegralParams(
+        max_degree1=block1.max_degree,
+        max_degree2=block2.max_degree,
+        center1=block1.center,
+        center2=block2.center,
+        cartesian_indices=cartesian_indices,
+        operator=operator,
+    )
+    integral_fn = functools.partial(_compute_pair_integral, params)
+
+    # Integrals for each pair of exponents.
+    # Shape: (n_exps1*n_exps2, n_cart1, n_cart2)
+    primitive_integrals_flat = jax.vmap(integral_fn)(flat_exps1, flat_exps2)
+
+    # Reshape to (n_exps1, n_exps2, n_cart1, n_cart2)
+    primitive_integrals = primitive_integrals_flat.reshape(
+        (
+            block1.n_exponents,
+            block2.n_exponents,
+            block1.n_cart,
+            block2.n_cart,
+        )
+    )
+
+    # Contract over the exponents.
+    # Dimensions:
+    #   d: n_cart1. Cartesian functions on block 1.
+    #   e: n_cart2. Cartesian functions on block 2.
+    #   a: n_exp1. Exponents on block 1
+    #   b: n_exp2. Exponents on block 2
+    # output shape: (n_cart1, n_cart2)
+    cartesian_matrix = jnp.einsum(
+        "da, eb, abde -> de",
+        block1.contraction_matrix,  # shape (n_cart1, n_exp1)
+        block2.contraction_matrix,  # shape (n_cart2, n_exp2)
+        primitive_integrals,  # shape (n_exp1, n_exp2, n_cart1, n_cart2)
+        optimize=True,
+    )
+
+    # Transform to the contracted basis representation.
+    # shape (n_basis1, n_basis2)
+    basis_matrix = (
+        block1.basis_transform @ cartesian_matrix @ block2.basis_transform.T
+    )
+
+    return basis_matrix
+
+
 def one_electron_matrix(
     block1: basis_block.BasisBlock,
     block2: basis_block.BasisBlock,
     operator: OneElectronOperator,
 ) -> np.ndarray:
-    """Computes the overlap matrix between two BasisBlocks.
-
-    Returns:
-        A numpy array of shape (N_basis1, N_basis2) where N_basis1 is the
-        number of basis functions in block1 and N_basis2 is the number of basis
-        functions in block2.
-    """
-    d1 = np.max(block1.cartesian_powers)
-    d2 = np.max(block2.cartesian_powers)
-
-    # Prepare Cartesian indices for broadcasting.
-    ix, iy, iz = block1.cartesian_powers.T
-    ix, iy, iz = ix[:, None], iy[:, None], iz[:, None]
-    jx, jy, jz = block2.cartesian_powers.T
-    jx, jy, jz = jx[None, :], jy[None, :], jz[None, :]
-
-    # Initialize the contracted Cartesian matrix.
-    n_cart1 = block1.cartesian_powers.shape[0]
-    n_cart2 = block2.cartesian_powers.shape[0]
-    cartesian_matrix = np.zeros((n_cart1, n_cart2), dtype=np.float64)
-
-    # Zip the exponents and coefficient columns of each block.
-    prims1 = zip(block1.exponents, block1.contraction_matrix.T)
-    prims2 = zip(block2.exponents, block2.contraction_matrix.T)
-
-    # Compute the one-electron integrals for each pair of primitive Cartesian
-    # Gaussians.
-    for (a1, c1), (a2, c2) in itertools.product(prims1, prims2):
-        g1 = gaussian.GaussianBasis3d(
-            max_degree=d1, exponent=a1, center=block1.center
-        )
-        g2 = gaussian.GaussianBasis3d(
-            max_degree=d2, exponent=a2, center=block2.center
-        )
-
-        # shape (d1+1, d1+1, d1+1, d2+1, d2+1, d2+1)
-        primitive_tensor = operator(g1, g2)
-
-        # shape (n_cart1, n_cart2)
-        primitive_matrix = primitive_tensor[ix, iy, iz, jx, jy, jz]
-
-        # Accumulate into the contracted Cartesian matrix.
-        cartesian_matrix += np.outer(c1, c2) * primitive_matrix
-
-    # Transform to the contracted basis representation.
-    # shape (n_basis1, n_basis2)
-    basis_matrix = np.dot(
-        block1.basis_transform,
-        np.dot(cartesian_matrix, block2.basis_transform.T),
-    )
-
-    return basis_matrix
+    jitted_fn = jit(one_electron_matrix_jax, static_argnames="operator")
+    return np.array(jitted_fn(block1, block2, operator))
 
 
 def two_electron_matrix(

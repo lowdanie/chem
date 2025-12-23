@@ -89,8 +89,7 @@ def _kinetic_3d_from_overlap_1d(
     return term_x + term_y + term_z
 
 
-@jit
-def kinetic_3d_jax(
+def kinetic_3d(
     g1: gaussian.GaussianBasis3d, g2: gaussian.GaussianBasis3d
 ) -> jax.Array:
     """Calculates the matrix elements of the Laplacian operator.
@@ -133,9 +132,3 @@ def kinetic_3d_jax(
     S_z = overlap.overlap_1d(g1z, g2z)
 
     return _kinetic_3d_from_overlap_1d(S_x, S_y, S_z, jnp.asarray(g2.exponent))
-
-
-def kinetic_3d(
-    g1: gaussian.GaussianBasis3d, g2: gaussian.GaussianBasis3d
-) -> np.ndarray:
-    return np.array(kinetic_3d_jax(g1, g2))

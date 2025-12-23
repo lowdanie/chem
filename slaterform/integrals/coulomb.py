@@ -2,8 +2,8 @@ from typing import NamedTuple
 import functools
 
 import jax
-import jax.numpy as jnp
 from jax import jit
+import jax.numpy as jnp
 from jax.scipy.special import gammainc, gamma
 import numpy as np
 
@@ -17,7 +17,6 @@ from slaterform.integrals import gaussian
 _SMALL_X_THRESHOLD = 1e-12
 
 
-@jit
 def boys(n: int, x: jax.Array) -> jax.Array:
     r"""Computes the Boys function F_n(x).
 
@@ -435,8 +434,7 @@ def _two_electron_base_case(
     return alpha * K * _V(g1, g2, s, Q)
 
 
-@jit
-def one_electron_jax(
+def one_electron(
     g1: gaussian.GaussianBasis3d,
     g2: gaussian.GaussianBasis3d,
     C: jax.Array,
@@ -484,7 +482,6 @@ def one_electron_jax(
     return I
 
 
-@jit
 def two_electron_jax(
     g1: gaussian.GaussianBasis3d,
     g2: gaussian.GaussianBasis3d,
@@ -585,14 +582,6 @@ def two_electron_jax(
 
     return I
 
-def one_electron(
-    g1: gaussian.GaussianBasis3d,
-    g2: gaussian.GaussianBasis3d,
-    C: np.ndarray,
-) -> np.ndarray:
-    return np.array(
-        one_electron_jax(g1, g2, jnp.asarray(C))
-    )
 
 def two_electron(
     g1: gaussian.GaussianBasis3d,
@@ -600,6 +589,4 @@ def two_electron(
     g3: gaussian.GaussianBasis3d,
     g4: gaussian.GaussianBasis3d,
 ) -> np.ndarray:
-    return np.array(
-        two_electron_jax(g1, g2, g3, g4)
-    )
+    return np.array(jit(two_electron_jax)(g1, g2, g3, g4))

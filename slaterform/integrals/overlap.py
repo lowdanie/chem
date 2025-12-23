@@ -136,7 +136,6 @@ def _horizontal_transfer(
     return jnp.hstack([s_j0[:, None], s_rest.T])
 
 
-@jit
 def overlap_1d(
     g1: gaussian.GaussianBasis1d, g2: gaussian.GaussianBasis1d
 ) -> jax.Array:
@@ -180,8 +179,7 @@ def _overlap_3d_from_1d(
     return jnp.einsum("ad,be,cf->abcdef", S_x, S_y, S_z)
 
 
-@jit
-def overlap_3d_jax(
+def overlap_3d(
     g1: gaussian.GaussianBasis3d, g2: gaussian.GaussianBasis3d
 ) -> jax.Array:
     """Computes the overlap integrals between two 3D Gaussian basis shells.
@@ -209,9 +207,3 @@ def overlap_3d_jax(
     ]
 
     return _overlap_3d_from_1d(S_x, S_y, S_z)
-
-
-def overlap_3d(
-    g1: gaussian.GaussianBasis3d, g2: gaussian.GaussianBasis3d
-) -> np.ndarray:
-    return np.array(overlap_3d_jax(g1, g2))

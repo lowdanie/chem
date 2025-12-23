@@ -1,6 +1,7 @@
 import dataclasses
 import pytest
 
+from jax import jit
 import numpy as np
 
 import slaterform as sf
@@ -194,14 +195,14 @@ _TEST_CASES_3D = [
 
 @pytest.mark.parametrize("case", _TEST_CASES_1D)
 def test_overlap_1d(case):
-    S = sf.integrals.overlap_1d(case.g1, case.g2)
+    S = jit(sf.integrals.overlap_1d)(case.g1, case.g2)
 
     np.testing.assert_allclose(S, case.expected, rtol=1e-14, atol=1e-15)
 
 
 @pytest.mark.parametrize("case", _TEST_CASES_3D)
 def test_overlap_3d(case):
-    S = sf.integrals.overlap_3d_jax(case.g1, case.g2)
+    S = jit(sf.integrals.overlap_3d)(case.g1, case.g2)
     assert S.shape == case.expected_shape
 
     for coords, expected in case.expected_values:

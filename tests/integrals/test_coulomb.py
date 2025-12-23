@@ -2,6 +2,7 @@ import dataclasses
 import pytest
 import os
 
+from jax import jit
 import numpy as np
 
 import slaterform as sf
@@ -363,13 +364,13 @@ _TWO_ELECTRON_TEST_CASES = [
 
 @pytest.mark.parametrize("case", _BOYS_TEST_CASES)
 def test_boys(case):
-    actual = sf.integrals.boys(case.n, case.x)
+    actual = jit(sf.integrals.boys)(case.n, case.x)
     np.testing.assert_allclose(actual, case.expected, atol=1e-17)
 
 
 @pytest.mark.parametrize("case", _ONE_ELECTRON_TEST_CASES)
 def test_one_electron(case):
-    I = sf.integrals.one_electron_jax(case.g1, case.g2, case.C)
+    I = jit(sf.integrals.one_electron)(case.g1, case.g2, case.C)
     assert I.shape == case.expected_shape
 
     for coord, expected in case.expected_values.items():
@@ -379,7 +380,7 @@ def test_one_electron(case):
 
 @pytest.mark.parametrize("case", _TWO_ELECTRON_TEST_CASES)
 def test_two_electron(case):
-    I = sf.integrals.two_electron_jax(case.g1, case.g2, case.g3, case.g4)
+    I = jit(sf.integrals.two_electron_jax)(case.g1, case.g2, case.g3, case.g4)
     assert I.shape == case.expected_shape
 
     for coord, expected in case.expected_values.items():

@@ -89,9 +89,9 @@ def test_generate_cartesian_powers_invalid_l():
 )
 def test_compute_normalization_constants(case):
     norms = cartesian.compute_normalization_constants(
-        case.exponent,
         case.max_degree,
         case.cartesian_powers,
+        case.exponent,
     )
 
     np.testing.assert_allclose(norms, case.expected, atol=1e-7)

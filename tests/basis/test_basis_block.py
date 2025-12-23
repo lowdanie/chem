@@ -1,17 +1,17 @@
 import dataclasses
 import pytest
 
+from jax import jit
 import numpy as np
 
-from slaterform.basis import basis_block
-from slaterform.basis import contracted_gto
+import slaterform as sf
 
 
 @dataclasses.dataclass
 class _BuildBasisBlockTestCase:
-    gto: contracted_gto.ContractedGTO
+    gto: sf.ContractedGTO
     center: np.ndarray  # shape (3,)
-    expected: basis_block.BasisBlock
+    expected: sf.BasisBlock
 
 
 # The contraction coefficients were normalized using the following code:
@@ -33,8 +33,8 @@ class _BuildBasisBlockTestCase:
     "case",
     [
         _BuildBasisBlockTestCase(
-            gto=contracted_gto.ContractedGTO(
-                primitive_type=contracted_gto.PrimitiveType.CARTESIAN,
+            gto=sf.ContractedGTO(
+                primitive_type=sf.PrimitiveType.CARTESIAN,
                 angular_momentum=(0, 0, 1),
                 exponents=np.array([0.1, 0.2, 0.3], dtype=np.float64),
                 coefficients=np.array(
@@ -47,7 +47,7 @@ class _BuildBasisBlockTestCase:
                 ),
             ),
             center=np.array([1.0, 2.0, 3.0]),
-            expected=basis_block.BasisBlock(
+            expected=sf.BasisBlock(
                 center=np.array([1.0, 2.0, 3.0]),
                 exponents=np.array([0.1, 0.2, 0.3], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -74,7 +74,7 @@ class _BuildBasisBlockTestCase:
     ],
 )
 def test_build_basis_block(case):
-    result = basis_block.build_basis_block(case.gto, case.center)
+    result = jit(sf.basis.build_basis_block_jax)(case.gto, case.center)
     assert result.n_basis == case.expected.n_basis
     assert result.n_cart == case.expected.n_cart
 
@@ -105,8 +105,8 @@ def test_build_basis_block(case):
 
 
 def test_build_basis_block_unsupported_primitive():
-    gto = contracted_gto.ContractedGTO(
-        primitive_type=contracted_gto.PrimitiveType.SPHERICAL,
+    gto = sf.ContractedGTO(
+        primitive_type=sf.PrimitiveType.SPHERICAL,
         angular_momentum=(0,),
         exponents=np.array([0.1], dtype=np.float64),
         coefficients=np.array([[1.0]], dtype=np.float64),
@@ -114,11 +114,11 @@ def test_build_basis_block_unsupported_primitive():
     center = np.array([0.0, 0.0, 0.0], dtype=np.float64)
 
     with pytest.raises(NotImplementedError):
-        basis_block.build_basis_block(gto, center)
+        sf.basis.build_basis_block_jax(gto, center)
 
 
 def test_n_basis():
-    block = basis_block.BasisBlock(
+    block = sf.BasisBlock(
         center=np.array([0.0, 0.0, 0.0]),
         exponents=np.array([0.1], dtype=np.float64),
         cartesian_powers=np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]]),
@@ -130,7 +130,7 @@ def test_n_basis():
 
 
 def test_n_cart():
-    block = basis_block.BasisBlock(
+    block = sf.BasisBlock(
         center=np.array([0.0, 0.0, 0.0]),
         exponents=np.array([0.1], dtype=np.float64),
         cartesian_powers=np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]]),

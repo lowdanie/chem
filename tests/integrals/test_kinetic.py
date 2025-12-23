@@ -1,7 +1,7 @@
 import dataclasses
 import pytest
 
-import jax.numpy as jnp
+from jax import jit
 import numpy as np
 
 import slaterform as sf
@@ -215,7 +215,7 @@ _TEST_CASES = [
 
 @pytest.mark.parametrize("case", _TEST_CASES)
 def test_kinetic_3d(case):
-    T = sf.integrals.kinetic_3d_jax(case.g1, case.g2)
+    T = jit(sf.integrals.kinetic_3d)(case.g1, case.g2)
     assert T.shape == case.expected_shape
 
     for coords, expected in case.expected_values:

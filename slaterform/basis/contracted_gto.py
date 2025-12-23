@@ -1,7 +1,12 @@
 import dataclasses
 import enum
 
+import jax
+import jax.numpy as jnp
+from jax.tree_util import register_pytree_node_class
 import numpy as np
+
+from slaterform import types
 
 
 class PrimitiveType(enum.Enum):
@@ -11,6 +16,7 @@ class PrimitiveType(enum.Enum):
     SPHERICAL = 2
 
 
+@register_pytree_node_class
 @dataclasses.dataclass
 class ContractedGTO:
     """A contracted Gaussian-type orbital (Contracted GTO).
@@ -44,8 +50,26 @@ class ContractedGTO:
 
     # The exponents for the Gaussian primitives in this contracted GTO.
     # shape (K,)
-    exponents: np.ndarray
+    exponents: types.Array
 
     # The contraction coefficients for each shell in this contracted GTO.
     # shape (N_shell, K)
-    coefficients: np.ndarray
+    coefficients: types.Array
+
+    def tree_flatten(self):
+        children = (self.exponents, self.coefficients)
+        aux_data = (self.primitive_type, self.angular_momentum)
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(
+        cls,
+        aux_data: tuple[PrimitiveType, tuple[int, ...]],
+        children: tuple[jax.Array, jax.Array],
+    ) -> "ContractedGTO":
+        return cls(
+            primitive_type=aux_data[0],
+            angular_momentum=aux_data[1],
+            exponents=children[0],
+            coefficients=children[1],
+        )
