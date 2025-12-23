@@ -139,3 +139,15 @@ def test_n_cart():
     )
 
     assert block.n_cart == 3
+
+
+def test_max_degree():
+    block = sf.BasisBlock(
+        center=np.array([0.0, 0.0, 0.0]),
+        exponents=np.array([0.1], dtype=np.float64),
+        cartesian_powers=np.array([[0, 0, 0], [1, 0, 0], [0, 2, 1]]),
+        contraction_matrix=np.array([[1.0], [0.5], [0.1]], dtype=np.float64),
+        basis_transform=np.ones((2, 3), dtype=np.float64),
+    )
+
+    assert block.max_degree == 2
