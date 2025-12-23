@@ -1,29 +1,28 @@
 import pytest
 
+from jax import jit
 import numpy as np
 
-from slaterform.structure import atom
-from slaterform.structure import molecule
-from slaterform.structure import nuclear
+import slaterform as sf
 
 
 @pytest.mark.parametrize(
     "mol, expected_energy",
     [
         (
-            molecule.Molecule(
+            sf.Molecule(
                 atoms=[
-                    atom.Atom(
+                    sf.Atom(
                         symbol="O",
                         number=8,
                         position=np.array([0.0, 0.0, 0.0]),
                     ),
-                    atom.Atom(
+                    sf.Atom(
                         symbol="H",
                         number=1,
                         position=np.array([1.0, 0.0, 0.0]),
                     ),
-                    atom.Atom(
+                    sf.Atom(
                         symbol="Li",
                         number=3,
                         position=np.array([0.0, 2.0, 0.0]),
@@ -34,9 +33,9 @@ from slaterform.structure import nuclear
             21.341640786499873,
         ),
         (
-            molecule.Molecule(
+            sf.Molecule(
                 atoms=[
-                    atom.Atom(
+                    sf.Atom(
                         symbol="O",
                         number=8,
                         position=np.array([0.0, 0.0, 0.0]),
@@ -47,9 +46,6 @@ from slaterform.structure import nuclear
         ),
     ],
 )
-def test_nuclear_repulsion_energy(
-    mol: molecule.Molecule, expected_energy: float
-):
-    np.testing.assert_almost_equal(
-        nuclear.repulsion_energy(mol), expected_energy, decimal=8
-    )
+def test_nuclear_repulsion_energy(mol: sf.Molecule, expected_energy: float):
+    E = jit(sf.structure.nuclear_repulsion_energy_jax)(mol)
+    np.testing.assert_almost_equal(E, expected_energy, decimal=8)
