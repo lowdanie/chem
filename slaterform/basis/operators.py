@@ -36,28 +36,33 @@ TwoElectronOperator = Callable[
 ]
 
 
-class _PairIntegralParams(NamedTuple):
-    max_degree1: int
-    max_degree2: int
-    center1: jax.Array
-    center2: jax.Array
-    cartesian_indices: tuple[jax.Array, ...]
-    operator: OneElectronOperator
+class _PrimitiveIntegralParams(NamedTuple):
+    max_degrees: tuple[int, ...]  # length n_primitives
+    centers: tuple[jax.Array, ...]  # length n_primitives
+    cartesian_indices: tuple[jax.Array, ...]  # length 3 * n_primitives
+    operator: OneElectronOperator | TwoElectronOperator
 
 
-def _compute_pair_integral(
-    params: _PairIntegralParams, exponent1: jax.Array, exponent2: jax.Array
+def _compute_primitive_integral(
+    params: _PrimitiveIntegralParams, *exponents: jax.Array
 ) -> jax.Array:
     """Computes the one-electron integral tensor between two primitive
     Cartesian Gaussians.
 
+    Args:
+        params: The static parameters for n_primitives primitive Gaussians.
+        exponents: The exponents of the primitive Gaussians. Length n_primitives.
     Returns:
         A jax array of shape (n_cart1, n_cart2)
     """
-    g1 = gaussian.GaussianBasis3d(params.max_degree1, exponent1, params.center1)
-    g2 = gaussian.GaussianBasis3d(params.max_degree2, exponent2, params.center2)
+    gaussian_args = [
+        gaussian.GaussianBasis3d(
+            params.max_degrees[i], exponents[i], params.centers[i]
+        )
+        for i in range(len(exponents))
+    ]
 
-    raw_tensor = params.operator(g1, g2)
+    raw_tensor = params.operator(*gaussian_args)
     return raw_tensor[params.cartesian_indices]
 
 
@@ -80,23 +85,21 @@ def one_electron_matrix_jax(
 
     # Generate all pairs of exponents.
     # flat_exps1 and flat_exps2 have shape (n_exps1*n_exps2,)
-    flat_exps1, flat_exps2 = broadcasting.flat_product(
+    exp_flat_product = broadcasting.flat_product(
         block1.exponents, block2.exponents
     )
 
-    params = _PairIntegralParams(
-        max_degree1=block1.max_degree,
-        max_degree2=block2.max_degree,
-        center1=block1.center,
-        center2=block2.center,
+    params = _PrimitiveIntegralParams(
+        max_degrees=(block1.max_degree, block2.max_degree),
+        centers=(block1.center, block2.center),
         cartesian_indices=cartesian_indices,
         operator=operator,
     )
-    integral_fn = functools.partial(_compute_pair_integral, params)
+    integral_fn = functools.partial(_compute_primitive_integral, params)
 
     # Integrals for each pair of exponents.
     # Shape: (n_exps1*n_exps2, n_cart1, n_cart2)
-    primitive_integrals_flat = jax.vmap(integral_fn)(flat_exps1, flat_exps2)
+    primitive_integrals_flat = jax.vmap(integral_fn)(*exp_flat_product)
 
     # Reshape to (n_exps1, n_exps2, n_cart1, n_cart2)
     primitive_integrals = primitive_integrals_flat.reshape(
@@ -141,6 +144,83 @@ def one_electron_matrix(
     return np.array(jitted_fn(block1, block2, operator))
 
 
+def two_electron_matrix_jax(
+    block1: basis_block.BasisBlock,
+    block2: basis_block.BasisBlock,
+    block3: basis_block.BasisBlock,
+    block4: basis_block.BasisBlock,
+    operator: TwoElectronOperator,
+) -> jax.Array:
+    """Computes the matrix elements for a two-electron operator.
+
+    Returns:
+      A jax array of shape
+      (num_basis1, num_basis2, num_basis3, num_basis4)
+    """
+    blocks = (block1, block2, block3, block4)
+
+    # Indices used to broadcast tensors to matrices.
+    cartesian_indices = broadcasting.broadcast_indices(
+        *tuple(b.cartesian_powers for b in blocks)
+    )
+
+    # Generate all pairs of exponents.
+    # flat_exps1 and flat_exps2 have shape (n_exps1*n_exps2,)
+    exp_flat_product = broadcasting.flat_product(
+        *tuple(b.exponents for b in blocks)
+    )
+
+    params = _PrimitiveIntegralParams(
+        max_degrees=tuple(b.max_degree for b in blocks),
+        centers=tuple(b.center for b in blocks),
+        cartesian_indices=cartesian_indices,
+        operator=operator,
+    )
+    integral_fn = functools.partial(_compute_primitive_integral, params)
+
+    # Integrals for each quartet of exponents.
+    # Shape: (n_exps1*...*n_exps4, n_cart1, ..., n_cart4)
+    primitive_integrals_flat = jax.vmap(integral_fn)(*exp_flat_product)
+
+    # Reshape to (n_exps1, ..., n_exps4, n_cart1, ..., n_cart4)
+    primitive_integrals = primitive_integrals_flat.reshape(
+        tuple(b.n_exponents for b in blocks) + tuple(b.n_cart for b in blocks)
+    )
+
+    # Contract over the exponents.
+    # Dimensions:
+    #   i: n_cart1. Cartesian functions on block 1.
+    #   j: n_cart2. Cartesian functions on block 2.
+    #   k: n_cart3. Cartesian functions on block 3.
+    #   l: n_cart4. Cartesian functions on block 4.
+    #   a: n_exp1. Exponents on block 1
+    #   b: n_exp2. Exponents on block 2
+    #   c: n_exp3. Exponents on block 3
+    #   d: n_exp4. Exponents on block 4
+    # output shape: (n_cart1, ..., n_cart4)
+    cartesian_matrix = jnp.einsum(
+        "ia, jb, kc, ld, abcdijkl -> ijkl",
+        block1.contraction_matrix,  # shape (n_cart1, n_exp1)
+        block2.contraction_matrix,  # shape (n_cart2, n_exp2)
+        block3.contraction_matrix,  # shape (n_cart3, n_exp3)
+        block4.contraction_matrix,  # shape (n_cart4, n_exp4)
+        primitive_integrals,  # shape (n_exp1, ... , n_exp4, n_cart1, .., n_cart4)
+        optimize=True,
+    )
+
+    # Transform to the contracted basis representation.
+    # shape (n_basis1, n_basis2)
+    return jnp.einsum(
+        "pi,qj,rk,sl,ijkl->pqrs",
+        block1.basis_transform,  # (n_basis1, n_cart1)
+        block2.basis_transform,  # (n_basis2, n_cart2)
+        block3.basis_transform,  # (n_basis3, n_cart3)
+        block4.basis_transform,  # (n_basis4, n_cart4)
+        cartesian_matrix,  # (n_cart1, n_cart2, n_cart3, n_cart4)
+        optimize=True,
+    )
+
+
 def two_electron_matrix(
     block1: basis_block.BasisBlock,
     block2: basis_block.BasisBlock,
@@ -154,70 +234,5 @@ def two_electron_matrix(
       A numpy array of shape
       (num_basis1, num_basis2, num_basis3, num_basis4)
     """
-    d1 = np.max(block1.cartesian_powers)
-    d2 = np.max(block2.cartesian_powers)
-    d3 = np.max(block3.cartesian_powers)
-    d4 = np.max(block4.cartesian_powers)
-
-    # Prepare Cartesian indices for broadcasting.
-    ix, iy, iz = [p[:, None, None, None] for p in block1.cartesian_powers.T]
-    jx, jy, jz = [p[None, :, None, None] for p in block2.cartesian_powers.T]
-    kx, ky, kz = [p[None, None, :, None] for p in block3.cartesian_powers.T]
-    lx, ly, lz = [p[None, None, None, :] for p in block4.cartesian_powers.T]
-
-    # Initialize the contracted Cartesian matrix elements
-    # Shape: (N_cart1, N_cart2, N_cart3, N_cart4)
-    dims = (
-        block1.cartesian_powers.shape[0],
-        block2.cartesian_powers.shape[0],
-        block3.cartesian_powers.shape[0],
-        block4.cartesian_powers.shape[0],
-    )
-    cartesian_matrix = np.zeros(dims, dtype=np.float64)
-
-    # Zip the exponents with the contraction coefficient columns.
-    prims1 = zip(block1.exponents, block1.contraction_matrix.T)
-    prims2 = zip(block2.exponents, block2.contraction_matrix.T)
-    prims3 = zip(block3.exponents, block3.contraction_matrix.T)
-    prims4 = zip(block4.exponents, block4.contraction_matrix.T)
-
-    for (a1, c1), (a2, c2), (a3, c3), (a4, c4) in itertools.product(
-        prims1, prims2, prims3, prims4
-    ):
-
-        # Create primitive Gaussians
-        g1 = gaussian.GaussianBasis3d(d1, a1, block1.center)
-        g2 = gaussian.GaussianBasis3d(d2, a2, block2.center)
-        g3 = gaussian.GaussianBasis3d(d3, a3, block3.center)
-        g4 = gaussian.GaussianBasis3d(d4, a4, block4.center)
-
-        # shape (d1+1,)*3 + (d2+1,)*3 + (d3+1,)*3 + (d4+1,)*3
-        primitive_tensor = operator(g1, g2, g3, g4)
-
-        # shape (n_cart1, n_cart2, n_cart3, n_cart4)
-        primitive_slice = primitive_tensor[
-            ix, iy, iz, jx, jy, jz, kx, ky, kz, lx, ly, lz
-        ]
-
-        # Broadcast the contraction coefficients.
-        c_prod = (
-            c1[:, None, None, None]
-            * c2[None, :, None, None]
-            * c3[None, None, :, None]
-            * c4[None, None, None, :]
-        )
-
-        cartesian_matrix += c_prod * primitive_slice
-
-    # Transform from Cartesian to the basis coordinates.
-    # shape (N_cart1, N_cart2, N_cart3, N_cart4) ->
-    #       (N_basis1, N_basis2, N_basis3, N_basis4)
-    return np.einsum(
-        "pi,qj,rk,sl,ijkl->pqrs",
-        block1.basis_transform,  # (N_basis1, N_cart1)
-        block2.basis_transform,  # (N_basis2, N_cart2)
-        block3.basis_transform,  # (N_basis3, N_cart3)
-        block4.basis_transform,  # (N_basis4, N_cart4)
-        cartesian_matrix,  # (N_cart1, N_cart2, N_cart3, N_cart4)
-        optimize=True,
-    )
+    jitted_fn = jit(two_electron_matrix_jax, static_argnames="operator")
+    return np.array(jitted_fn(block1, block2, block3, block4, operator))

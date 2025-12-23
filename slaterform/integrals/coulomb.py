@@ -482,7 +482,7 @@ def one_electron(
     return I
 
 
-def two_electron_jax(
+def two_electron(
     g1: gaussian.GaussianBasis3d,
     g2: gaussian.GaussianBasis3d,
     g3: gaussian.GaussianBasis3d,
@@ -581,12 +581,3 @@ def two_electron_jax(
     I = jnp.moveaxis(I, [3, 4, 5], [6, 7, 8])
 
     return I
-
-
-def two_electron(
-    g1: gaussian.GaussianBasis3d,
-    g2: gaussian.GaussianBasis3d,
-    g3: gaussian.GaussianBasis3d,
-    g4: gaussian.GaussianBasis3d,
-) -> np.ndarray:
-    return np.array(jit(two_electron_jax)(g1, g2, g3, g4))

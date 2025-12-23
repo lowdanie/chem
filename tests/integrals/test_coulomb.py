@@ -380,7 +380,7 @@ def test_one_electron(case):
 
 @pytest.mark.parametrize("case", _TWO_ELECTRON_TEST_CASES)
 def test_two_electron(case):
-    I = jit(sf.integrals.two_electron_jax)(case.g1, case.g2, case.g3, case.g4)
+    I = jit(sf.integrals.two_electron)(case.g1, case.g2, case.g3, case.g4)
     assert I.shape == case.expected_shape
 
     for coord, expected in case.expected_values.items():
