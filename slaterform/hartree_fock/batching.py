@@ -1,32 +1,34 @@
 import dataclasses
 from collections.abc import Sequence
-from typing import Hashable
+from typing import Any, Generic, TypeVar, Hashable
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 
-from slaterform.basis import basis_block
+# A generic type representing a jax pytree.
+Tree = TypeVar("Tree")
 
 
 @dataclasses.dataclass(frozen=True)
-class BatchedBlocks:
-    """A group of basis blocks batched for jax processing.
+class BatchedTrees(Generic[Tree]):
+    """A batch of pytree tuples for jax processing.
 
-    The blocks in each stack all have the same static signature.
+    The trees in each stack all have the same static signature.
     """
 
-    # block_stacks[i] is a stack of n_blocks[i] basis blocks.
+    # stacks[i] is a single pytree where the leaves are stacked arrays
+    # with shape (n_items[i], ...).
     # Length: tuple_size
-    block_stacks: tuple[basis_block.BasisBlock, ...]
+    stacks: tuple[Tree, ...]
 
-    # Indices of the blocks starting indices in the global molecular basis.
-    # global_block_starts[i] is an array of shape (n_blocks[i],)
+    # Indices of the pytrees in the original input sequence.
+    # global_tree_indices[i] is an array of shape (n_items[i],)
     # Length: tuple_size
-    global_block_starts: tuple[jax.Array, ...]
+    global_tree_indices: tuple[jax.Array, ...]
 
-    # Batches of block tuple indices. The tuple indices index into the
-    # block stacks.
+    # Batches of tree tuple indices. The tuple indices index into the
+    # tree stacks.
     # Shape (n_batches, batch_size, tuple_size)
     tuple_indices: jax.Array
 
@@ -36,93 +38,93 @@ class BatchedBlocks:
 
 
 @dataclasses.dataclass(frozen=True, order=True)
-class BlockSignature:
-    aux_data: tuple[tuple[int, ...], ...]
+class TreeSignature:
+    aux_data: Hashable
     leaf_shapes: tuple[tuple[int, ...], ...]
 
 
-_BlockGroupKey = tuple[BlockSignature, ...]
+_GroupKey = tuple[TreeSignature, ...]
 
 
 @dataclasses.dataclass(frozen=True)
-class _BlockGroup:
-    """A group of blocks with the same signature."""
+class _Group(Generic[Tree]):
+    """A group of pytrees with the same signature."""
 
-    # blocks[i] is dict of BasisBlocks keyed with their global index.
+    # trees[i] is dict of trees keyed with their global index.
     # Length: tuple_size
-    blocks: tuple[dict[int, basis_block.BasisBlock], ...]
+    trees: tuple[dict[int, Tree], ...]
 
     # Each tuple has size tuple_size. The indices are into the global
-    # list of blocks (i.e keys of blocks).
+    # list of trees.
     tuple_indices: list[tuple[int, ...]]
 
 
-def compute_block_signature(
-    block: basis_block.BasisBlock,
-) -> BlockSignature:
-    """Computes a hashable static signature for a BasisBlock."""
-    children, aux_data = block.tree_flatten()
-    leaf_shapes = tuple(child.shape for child in children)
-    return BlockSignature(aux_data=aux_data, leaf_shapes=leaf_shapes)
+def compute_tree_signature(
+    tree: Any,
+) -> TreeSignature:
+    """Computes a static signature for a BasisBlock."""
+    leaves, aux_data = jax.tree.flatten(tree)
+    leaf_shapes = tuple(jnp.shape(leaf) for leaf in leaves)
+    return TreeSignature(aux_data=aux_data, leaf_shapes=leaf_shapes)
 
 
 def _compute_group_key(
-    blocks: Sequence[basis_block.BasisBlock],
+    trees: Sequence[Tree],
     tuple_index: tuple[int, ...],
-) -> _BlockGroupKey:
-    return tuple(compute_block_signature(blocks[i]) for i in tuple_index)
+) -> _GroupKey:
+    return tuple(compute_tree_signature(trees[i]) for i in tuple_index)
 
 
-def _init_block_group(
+def _init_group(
     tuple_size: int,
-) -> _BlockGroup:
-    return _BlockGroup(
-        blocks=tuple(dict() for _ in range(tuple_size)),
+) -> _Group:
+    return _Group(
+        trees=tuple(dict() for _ in range(tuple_size)),
         tuple_indices=[],
     )
 
 
-def _update_block_group(
-    block_group: _BlockGroup,
-    blocks: Sequence[basis_block.BasisBlock],
+def _update_group(
+    group: _Group,
+    trees: Sequence[Tree],
     tuple_index: tuple[int, ...],
 ) -> None:
-    block_group.tuple_indices.append(tuple_index)
+    group.tuple_indices.append(tuple_index)
 
-    # Update the blocks if they are not already present.
-    for i, block_idx in enumerate(tuple_index):
-        if block_idx not in block_group.blocks[i]:
-            block_group.blocks[i][block_idx] = blocks[block_idx]
+    # Update the trees if they are not already present.
+    for i, tree_idx in enumerate(tuple_index):
+        if tree_idx not in group.trees[i]:
+            group.trees[i][tree_idx] = trees[tree_idx]
 
 
-def _generate_block_groups(
-    blocks: Sequence[basis_block.BasisBlock],
+def _generate_groups(
+    trees: Sequence[Tree],
     tuple_length: int,
     tuple_indices: Sequence[tuple[int, ...]],
-) -> dict[_BlockGroupKey, _BlockGroup]:
-    """Group the block tuples by their static signatures."""
-    block_groups: dict[_BlockGroupKey, _BlockGroup] = {}
+) -> dict[_GroupKey, _Group]:
+    """Group the tree tuples by their static signatures."""
+    groups: dict[_GroupKey, _Group] = {}
 
     for idx_tuple in tuple_indices:
-        group_key = _compute_group_key(blocks, idx_tuple)
-        if group_key not in block_groups:
-            block_groups[group_key] = _init_block_group(tuple_length)
-        _update_block_group(block_groups[group_key], blocks, idx_tuple)
+        group_key = _compute_group_key(trees, idx_tuple)
+        if group_key not in groups:
+            groups[group_key] = _init_group(tuple_length)
+        _update_group(groups[group_key], trees, idx_tuple)
 
-    return block_groups
+    return groups
 
 
-def _generate_block_stack(
-    blocks: dict[int, basis_block.BasisBlock],
-) -> tuple[basis_block.BasisBlock, np.ndarray]:
-    """Generates a stack of basis blocks and their global indices."""
+def _generate_tree_stack(
+    trees: dict[int, Tree],
+) -> tuple[Tree, np.ndarray]:
+    """Stacks the pytrees into a single pytree and records the global indices."""
     # We're relying on the fact that dicts preserve insertion order.
-    block_stack = list(blocks.values())
-    global_indices = np.array(list(blocks.keys()))
+    stack = list(trees.values())
+    global_indices = np.array(list(trees.keys()))
 
     # Stack the arrays in the basis blocks
-    block_stack = jax.tree.map(lambda *xs: jnp.stack(xs), *block_stack)
-    return block_stack, global_indices
+    stack = jax.tree.map(lambda *xs: jnp.stack(xs), *stack)
+    return stack, global_indices
 
 
 def _batch_tuple_indices(
@@ -158,17 +160,19 @@ def _batch_tuple_indices(
 
 def _map_to_local_tuple_indices(
     global_tuple_indices: np.ndarray,
-    global_block_indices: Sequence[np.ndarray],
+    global_tree_indices: Sequence[np.ndarray],
 ) -> np.ndarray:
     """Maps global tuple indices to local tuple indices.
 
     Args:
         global_tuple_indices: shape (n_tuples, tuple_size)
-        global_block_indices: Length tuple_size, each of shape (N_i,)
+        global_tree_indices: Length tuple_size, each of shape (n_trees_i,)
+    Returns:
+        local_tuple_indices: shape (n_tuples, tuple_size)
     """
     # shape: (n_tuples, tuple_size)
     local_tuple_indices = np.zeros_like(global_tuple_indices)
-    for col, global_indices in enumerate(global_block_indices):
+    for col, global_indices in enumerate(global_tree_indices):
         max_global_idx = np.max(global_indices)
         lookup_table = np.zeros(max_global_idx + 1, dtype=np.int32)
         lookup_table[global_indices] = np.arange(
@@ -179,22 +183,18 @@ def _map_to_local_tuple_indices(
     return local_tuple_indices
 
 
-def _batch_block_group(
-    block_group: _BlockGroup, block_starts: np.ndarray, max_batch_size: int
-) -> BatchedBlocks:
-    # Generate tuple_size block stacks and global indices
-    block_stacks = []
+def _batch_group(group: _Group, max_batch_size: int) -> BatchedTrees:
+    # Generate tuple_size stacks and global indices
+    stacks = []
     global_block_indices = []
-    global_block_starts = []
 
-    for blocks_dict in block_group.blocks:
-        block_stack, global_idx = _generate_block_stack(blocks_dict)
-        block_stacks.append(block_stack)
+    for tree_dict in group.trees:
+        stack, global_idx = _generate_tree_stack(tree_dict)
+        stacks.append(stack)
         global_block_indices.append(global_idx)
-        global_block_starts.append(block_starts[global_idx])
 
     # Convert to local tuple indices and batch them.
-    global_tuple_indices = np.array(block_group.tuple_indices, dtype=np.int32)
+    global_tuple_indices = np.array(group.tuple_indices, dtype=np.int32)
     local_tuple_indices = _map_to_local_tuple_indices(
         global_tuple_indices, global_block_indices
     )
@@ -202,53 +202,41 @@ def _batch_block_group(
         local_tuple_indices, max_batch_size
     )
 
-    return BatchedBlocks(
-        block_stacks=tuple(block_stacks),
-        global_block_starts=tuple(jnp.array(g) for g in global_block_starts),
+    return BatchedTrees(
+        stacks=tuple(stacks),
+        global_tree_indices=tuple(jnp.array(g) for g in global_block_indices),
         tuple_indices=jnp.array(batched_tuple_indices),
         padding_mask=jnp.array(padding_mask),
     )
 
 
-def _compute_block_starts(
-    blocks: Sequence[basis_block.BasisBlock],
-) -> np.ndarray:
-    """Computes the starting indices of each block in the global basis."""
-    if not blocks:
-        return np.array([], dtype=np.int32)
-
-    block_sizes = np.array([b.n_basis for b in blocks])
-    return np.concatenate([np.array([0]), np.cumsum(block_sizes[:-1])])
-
-
-def generate_batched_block_groups(
-    blocks: Sequence[basis_block.BasisBlock],
+def generate_batched_trees(
+    trees: Sequence[Tree],
     tuple_length: int,
     tuple_indices: Sequence[tuple[int, ...]],
     max_batch_size: int,
-) -> Sequence[BatchedBlocks]:
-    """Generates batched block groups from the given blocks and tuple indices.
+) -> Sequence[BatchedTrees]:
+    """Generates batches of tree tuples from the given trees and tuple indices.
 
     Note:
         The batched block tuples are grouped by their static signatures for efficient
-        jax processing. If possible, sort the blocks to minimize the number of unique
-        block tuple signatures before calling this function.
+        jax processing. If possible, sort the trees or tuple indices to minimize
+        the number of unique tree tuple signatures before calling this function.
+        For example, if the indices in each tuple are monotonic, sort the trees
+        by compute_tree_signature.
+
     Args:
-        blocks: A sequence of BasisBlocks of length n_blocks.
-        tuple_length: The length of each block tuple.
-        tuple_indices: A sequence of tuples of indices of length
-            n_tuples, each of length tuple_length. The indices in each tuple
-            are between 0 and n_blocks-1.
+        trees: A sequence of pytrees of length n_trees.
+        tuple_length: The length of each tree tuple.
+        tuple_indices: A sequence of tuples of indices. Each tuple has length
+            tuple_length. The indices in each tuple are between 0 and n_trees-1.
         max_batch_size: The maximum batch size for batching the tuples.
 
     Returns:
-        A sequence of BatchedBlocks, one for each unique block tuple signature.
-        The tuples in the BatchedBlocks are equal to the input tuples of blocks.
+        A sequence of BatchedTrees, one for each unique block tuple signature.
+        The set of tuples in the union of the BatchedTrees are equal to the set
+        of input tree tuples.
     """
-    block_starts = _compute_block_starts(blocks)
-    block_groups = _generate_block_groups(blocks, tuple_length, tuple_indices)
+    groups = _generate_groups(trees, tuple_length, tuple_indices)
 
-    return [
-        _batch_block_group(bg, block_starts, max_batch_size)
-        for bg in block_groups.values()
-    ]
+    return [_batch_group(g, max_batch_size) for g in groups.values()]
