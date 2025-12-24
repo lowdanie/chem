@@ -1,5 +1,6 @@
 import dataclasses
-from typing import Hashable, Sequence
+from collections.abc import Sequence
+from typing import Hashable
 
 import jax
 import jax.numpy as jnp
@@ -17,12 +18,12 @@ class BatchedBlocks:
 
     # block_stacks[i] is a stack of n_blocks[i] basis blocks.
     # Length: tuple_size
-    block_stacks: tuple[basis_block.BasisBlock]
+    block_stacks: tuple[basis_block.BasisBlock, ...]
 
-    # Indices of the blocks in the global molecular basis.
-    # global_indices[i] is an array of shape (n_blocks[i],)
+    # Indices of the blocks starting indices in the global molecular basis.
+    # global_block_starts[i] is an array of shape (n_blocks[i],)
     # Length: tuple_size
-    global_block_indices: tuple[jax.Array]
+    global_block_starts: tuple[jax.Array, ...]
 
     # Batches of block tuple indices. The tuple indices index into the
     # block stacks.
@@ -34,13 +35,13 @@ class BatchedBlocks:
     padding_mask: jax.Array
 
 
-@dataclasses.dataclass(frozen=True)
-class _BlockSignature:
-    aux_data: Hashable
+@dataclasses.dataclass(frozen=True, order=True)
+class BlockSignature:
+    aux_data: tuple[tuple[int, ...], ...]
     leaf_shapes: tuple[tuple[int, ...], ...]
 
 
-_BlockTupleSignature = tuple[_BlockSignature, ...]
+_BlockGroupKey = tuple[BlockSignature, ...]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -56,19 +57,20 @@ class _BlockGroup:
     tuple_indices: list[tuple[int, ...]]
 
 
-def _compute_block_signature(
+def compute_block_signature(
     block: basis_block.BasisBlock,
-) -> _BlockSignature:
+) -> BlockSignature:
     """Computes a hashable static signature for a BasisBlock."""
     children, aux_data = block.tree_flatten()
     leaf_shapes = tuple(child.shape for child in children)
-    return _BlockSignature(aux_data=aux_data, leaf_shapes=leaf_shapes)
+    return BlockSignature(aux_data=aux_data, leaf_shapes=leaf_shapes)
 
 
-def _compute_block_tuple_signature(
+def _compute_group_key(
     blocks: Sequence[basis_block.BasisBlock],
-) -> _BlockTupleSignature:
-    return tuple(_compute_block_signature(b) for b in blocks)
+    tuple_index: tuple[int, ...],
+) -> _BlockGroupKey:
+    return tuple(compute_block_signature(blocks[i]) for i in tuple_index)
 
 
 def _init_block_group(
@@ -97,15 +99,15 @@ def _generate_block_groups(
     blocks: Sequence[basis_block.BasisBlock],
     tuple_length: int,
     tuple_indices: Sequence[tuple[int, ...]],
-) -> dict[_BlockTupleSignature, _BlockGroup]:
+) -> dict[_BlockGroupKey, _BlockGroup]:
     """Group the block tuples by their static signatures."""
-    block_groups: dict[_BlockTupleSignature, _BlockGroup] = {}
+    block_groups: dict[_BlockGroupKey, _BlockGroup] = {}
 
     for idx_tuple in tuple_indices:
-        sig = _compute_block_tuple_signature([blocks[i] for i in idx_tuple])
-        if sig not in block_groups:
-            block_groups[sig] = _init_block_group(tuple_length)
-        _update_block_group(block_groups[sig], blocks, idx_tuple)
+        group_key = _compute_group_key(blocks, idx_tuple)
+        if group_key not in block_groups:
+            block_groups[group_key] = _init_block_group(tuple_length)
+        _update_block_group(block_groups[group_key], blocks, idx_tuple)
 
     return block_groups
 
@@ -178,20 +180,23 @@ def _map_to_local_tuple_indices(
 
 
 def _batch_block_group(
-    block_group: _BlockGroup, max_batch_size: int
+    block_group: _BlockGroup, block_starts: np.ndarray, max_batch_size: int
 ) -> BatchedBlocks:
     # Generate tuple_size block stacks and global indices
     block_stacks = []
-    global_indices = []
+    global_block_indices = []
+    global_block_starts = []
+
     for blocks_dict in block_group.blocks:
         block_stack, global_idx = _generate_block_stack(blocks_dict)
         block_stacks.append(block_stack)
-        global_indices.append(global_idx)
+        global_block_indices.append(global_idx)
+        global_block_starts.append(block_starts[global_idx])
 
     # Convert to local tuple indices and batch them.
     global_tuple_indices = np.array(block_group.tuple_indices, dtype=np.int32)
     local_tuple_indices = _map_to_local_tuple_indices(
-        global_tuple_indices, global_indices
+        global_tuple_indices, global_block_indices
     )
     batched_tuple_indices, padding_mask = _batch_tuple_indices(
         local_tuple_indices, max_batch_size
@@ -199,10 +204,21 @@ def _batch_block_group(
 
     return BatchedBlocks(
         block_stacks=tuple(block_stacks),
-        global_block_indices=tuple(jnp.array(g) for g in global_indices),
+        global_block_starts=tuple(jnp.array(g) for g in global_block_starts),
         tuple_indices=jnp.array(batched_tuple_indices),
         padding_mask=jnp.array(padding_mask),
     )
+
+
+def _compute_block_starts(
+    blocks: Sequence[basis_block.BasisBlock],
+) -> np.ndarray:
+    """Computes the starting indices of each block in the global basis."""
+    if not blocks:
+        return np.array([], dtype=np.int32)
+
+    block_sizes = np.array([b.n_basis for b in blocks])
+    return np.concatenate([np.array([0]), np.cumsum(block_sizes[:-1])])
 
 
 def generate_batched_block_groups(
@@ -211,9 +227,28 @@ def generate_batched_block_groups(
     tuple_indices: Sequence[tuple[int, ...]],
     max_batch_size: int,
 ) -> Sequence[BatchedBlocks]:
-    """Generates batched block groups from the given blocks and tuple indices."""
+    """Generates batched block groups from the given blocks and tuple indices.
+
+    Note:
+        The batched block tuples are grouped by their static signatures for efficient
+        jax processing. If possible, sort the blocks to minimize the number of unique
+        block tuple signatures before calling this function.
+    Args:
+        blocks: A sequence of BasisBlocks of length n_blocks.
+        tuple_length: The length of each block tuple.
+        tuple_indices: A sequence of tuples of indices of length
+            n_tuples, each of length tuple_length. The indices in each tuple
+            are between 0 and n_blocks-1.
+        max_batch_size: The maximum batch size for batching the tuples.
+
+    Returns:
+        A sequence of BatchedBlocks, one for each unique block tuple signature.
+        The tuples in the BatchedBlocks are equal to the input tuples of blocks.
+    """
+    block_starts = _compute_block_starts(blocks)
     block_groups = _generate_block_groups(blocks, tuple_length, tuple_indices)
 
     return [
-        _batch_block_group(bg, max_batch_size) for bg in block_groups.values()
+        _batch_block_group(bg, block_starts, max_batch_size)
+        for bg in block_groups.values()
     ]
