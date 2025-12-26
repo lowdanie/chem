@@ -44,7 +44,7 @@ class _BatchTreeTuplesTestCase:
     tuple_length: int
     tuple_indices: list[tuple[int, ...]]
     max_batch_size: int
-    expected_batched: Sequence[sf.BatchedTrees]
+    expected_batched: Sequence[sf.BatchedTreeTuples]
 
 
 @dataclasses.dataclass
@@ -149,7 +149,7 @@ def test_compute_tree_signature(case: _ComputeTreeSignatureTestCase):
             max_batch_size=2,
             expected_batched=[
                 # A1, A1
-                sf.BatchedTrees(
+                sf.BatchedTreeTuples(
                     stacks=(
                         TestNode(
                             data1=jnp.array([[1.0], [2.0]]),
@@ -186,7 +186,7 @@ def test_compute_tree_signature(case: _ComputeTreeSignatureTestCase):
                     ),
                 ),
                 # A1, A2
-                sf.BatchedTrees(
+                sf.BatchedTreeTuples(
                     stacks=(
                         TestNode(
                             data1=jnp.array([[1.0], [2.0]]),
@@ -218,7 +218,7 @@ def test_compute_tree_signature(case: _ComputeTreeSignatureTestCase):
                     ),
                 ),
                 # A1, B1
-                sf.BatchedTrees(
+                sf.BatchedTreeTuples(
                     stacks=(
                         TestNode(
                             data1=jnp.array([[1.0], [2.0]]),
@@ -250,7 +250,7 @@ def test_compute_tree_signature(case: _ComputeTreeSignatureTestCase):
                     ),
                 ),
                 # A2, A2
-                sf.BatchedTrees(
+                sf.BatchedTreeTuples(
                     stacks=(
                         TestNode(
                             data1=jnp.array([[1.0, 2.0]]),
@@ -281,7 +281,7 @@ def test_compute_tree_signature(case: _ComputeTreeSignatureTestCase):
                     ),
                 ),
                 # A2, B1
-                sf.BatchedTrees(
+                sf.BatchedTreeTuples(
                     stacks=(
                         TestNode(
                             data1=jnp.array([[1.0, 2.0]]),
@@ -312,7 +312,7 @@ def test_compute_tree_signature(case: _ComputeTreeSignatureTestCase):
                     ),
                 ),
                 # B1, B1
-                sf.BatchedTrees(
+                sf.BatchedTreeTuples(
                     stacks=(
                         TestNode(
                             data1=jnp.array([[1.0]]),
@@ -428,7 +428,7 @@ def _unstack_tree(stacked_tree: Any) -> list[Any]:
 
 
 def _get_global_tuple_indices(
-    batched_tree: sf.BatchedTrees,
+    batched_tree: sf.BatchedTreeTuples,
 ) -> list[tuple[int, ...]]:
     tuple_size = batched_tree.tuple_indices.shape[2]
     tuple_indices = batched_tree.tuple_indices.reshape(-1, tuple_size)
@@ -449,7 +449,7 @@ def _get_global_tuple_indices(
 
 
 def _validate_global_indices(
-    batched_tree: sf.BatchedTrees,
+    batched_tree: sf.BatchedTreeTuples,
     global_trees: Sequence[TestNode],
 ):
     local_tree_cols = [_unstack_tree(stack) for stack in batched_tree.stacks]

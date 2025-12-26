@@ -1,16 +1,131 @@
+import itertools
+from typing import Callable, NamedTuple
+import functools
+
+import jax
+from jax import numpy as jnp
 import numpy as np
 
-import itertools
 
 from slaterform.integrals import overlap
 from slaterform.integrals import kinetic
 from slaterform.integrals import coulomb
 from slaterform.structure import molecular_basis
+from slaterform.structure import batched_molecular_basis as bmb
+from slaterform.basis import basis_block
 from slaterform.basis import operators
+from slaterform.jax_utils import batching
+from slaterform.jax_utils import scatter
+
+_BlockOperator = Callable[
+    [basis_block.BasisBlock, basis_block.BasisBlock], jax.Array
+]
+
+
+class _GroupParams(NamedTuple):
+    # The stacked basis blocks for the group of batches.
+    # Length: 2
+    stacks: tuple[basis_block.BasisBlock, ...]
+
+    # The starting indices of each basis block in the stack with respect to
+    # the full basis set.
+    # Length: 2
+    stack_starts: tuple[jax.Array, ...]
+
+    # A block operator that can operate on basis blocks with a batch dimension.
+    batch_operator: _BlockOperator
+
+
+class _BatchData(NamedTuple):
+    tuple_indices: jax.Array  # Shape (batch_size, 2)
+    mask: jax.Array  # Shape (batch_size,)
+
+
+def _batch_step(
+    params: _GroupParams, matrix: jax.Array, batch_data: _BatchData
+) -> tuple[jax.Array, None]:
+    # Indices of each pair of blocks in the batch.
+    # shape: (batch_size,)
+    i_idx = batch_data.tuple_indices[:, 0]
+    j_idx = batch_data.tuple_indices[:, 1]
+
+    # Gather the basis blocks for each pair in the batch.
+    # Each has shape (batch_size, ...)
+    i_block = jax.tree.map(lambda x: x[i_idx], params.stacks[0])
+    j_block = jax.tree.map(lambda x: x[j_idx], params.stacks[1])
+
+    # Compute the one-electron integrals for the batch.
+    # shape: (batch_size, n_i_basis, n_j_basis)
+    integral_matrix = params.batch_operator(i_block, j_block)
+
+    new_matrix = scatter.add_tiles_2d(
+        matrix=matrix,
+        tiles=integral_matrix,
+        row_starts=params.stack_starts[0][i_idx],
+        col_starts=params.stack_starts[1][j_idx],
+        mask=batch_data.mask,
+    )
+
+    # Also add the transpose for the symmetric entry if i!=j
+    new_matrix = scatter.add_tiles_2d(
+        matrix=new_matrix,
+        tiles=integral_matrix.transpose((0, 2, 1)),
+        row_starts=params.stack_starts[1][j_idx],
+        col_starts=params.stack_starts[0][i_idx],
+        mask=batch_data.mask * (i_idx != j_idx),
+    )
+
+    return new_matrix, None
+
+
+def _process_batched_tuples(
+    matrix: jax.Array,
+    batched_tuples: batching.BatchedTreeTuples,
+    block_starts: jax.Array,
+    batch_operator: _BlockOperator,
+) -> jax.Array:
+    """Compute contributions to the one-electron matrix from batched tuples."""
+    stack_starts = tuple(
+        block_starts[idx] for idx in batched_tuples.global_tree_indices
+    )
+    params = _GroupParams(
+        stacks=batched_tuples.stacks,
+        stack_starts=stack_starts,
+        batch_operator=batch_operator,
+    )
+    batch_data = _BatchData(
+        tuple_indices=batched_tuples.tuple_indices,
+        mask=batched_tuples.padding_mask,
+    )
+    scan_fn = functools.partial(_batch_step, params)
+    new_matrix, _ = jax.lax.scan(scan_fn, matrix, batch_data)
+
+    return new_matrix
+
+
+def _one_electron_matrix_jax(
+    batched_basis: bmb.BatchedMolecularBasis,
+    operator: operators.OneElectronOperator,
+) -> jax.Array:
+    n_basis = batched_basis.basis.n_basis
+    matrix = jnp.zeros((n_basis, n_basis), dtype=jnp.float64)
+    batch_operator = jax.vmap(
+        lambda b1, b2: operators.one_electron_matrix(b1, b2, operator)
+    )
+
+    for batched_tuples in batched_basis.batches_1e:
+        matrix = _process_batched_tuples(
+            matrix,
+            batched_tuples,
+            jnp.asarray(batched_basis.block_starts),
+            batch_operator,
+        )
+
+    return matrix
 
 
 def one_electron_matrix(
-    mol_basis: molecular_basis.MolecularBasis,
+    mol_basis: bmb.BatchedMolecularBasis,
     operator: operators.OneElectronOperator,
 ) -> np.ndarray:
     """Computes the one-electron matrix for a given molecular basis.

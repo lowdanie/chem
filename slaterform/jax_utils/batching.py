@@ -13,7 +13,7 @@ Tree = TypeVar("Tree")
 
 @register_pytree_node_class
 @dataclasses.dataclass(frozen=True)
-class BatchedTrees(Generic[Tree]):
+class BatchedTreeTuples(Generic[Tree]):
     """A batch of pytree tuples for jax processing.
 
     The trees in each stack all have the same static signature.
@@ -58,7 +58,7 @@ class BatchedTrees(Generic[Tree]):
             jax.Array,
             jax.Array,
         ],
-    ) -> "BatchedTrees":
+    ) -> "BatchedTreeTuples":
         return cls(
             stacks=children[0],
             global_tree_indices=children[1],
@@ -213,7 +213,7 @@ def _map_to_local_tuple_indices(
     return local_tuple_indices
 
 
-def _batch_group(group: _Group, max_batch_size: int) -> BatchedTrees:
+def _batch_group(group: _Group, max_batch_size: int) -> BatchedTreeTuples:
     # Generate tuple_size stacks and global indices
     stacks = []
     global_block_indices = []
@@ -232,7 +232,7 @@ def _batch_group(group: _Group, max_batch_size: int) -> BatchedTrees:
         local_tuple_indices, max_batch_size
     )
 
-    return BatchedTrees(
+    return BatchedTreeTuples(
         stacks=tuple(stacks),
         global_tree_indices=tuple(jnp.array(g) for g in global_block_indices),
         tuple_indices=jnp.array(batched_tuple_indices),
@@ -245,7 +245,7 @@ def batch_tree_tuples(
     tuple_length: int,
     tuple_indices: Sequence[tuple[int, ...]],
     max_batch_size: int,
-) -> Sequence[BatchedTrees]:
+) -> Sequence[BatchedTreeTuples]:
     """Generates batches of tree tuples from the given trees and tuple indices.
 
     Note:

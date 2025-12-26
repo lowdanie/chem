@@ -13,4 +13,4 @@ from .structure.molecule import Molecule
 from .structure.molecular_basis import MolecularBasis
 
 from . import jax_utils
-from .jax_utils.batching import BatchedTrees, TreeSignature
+from .jax_utils.batching import BatchedTreeTuples, TreeSignature
