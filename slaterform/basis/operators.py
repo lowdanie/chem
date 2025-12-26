@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from slaterform.basis import basis_block
-from slaterform.basis import broadcasting
+from slaterform.jax_utils import broadcasting
 from slaterform.integrals import gaussian
 
 # A one-electron operator between two BasisBlocks.

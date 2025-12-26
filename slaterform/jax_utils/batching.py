@@ -4,12 +4,14 @@ from typing import Any, Generic, TypeVar, Hashable
 
 import jax
 import jax.numpy as jnp
+from jax.tree_util import register_pytree_node_class
 import numpy as np
 
 # A generic type representing a jax pytree.
 Tree = TypeVar("Tree")
 
 
+@register_pytree_node_class
 @dataclasses.dataclass(frozen=True)
 class BatchedTrees(Generic[Tree]):
     """A batch of pytree tuples for jax processing.
@@ -35,6 +37,34 @@ class BatchedTrees(Generic[Tree]):
     # Mask indicating which entries in the batches are valid.
     # Shape (n_batches, batch_size)
     padding_mask: jax.Array
+
+    def tree_flatten(self):
+        children = (
+            self.stacks,
+            self.global_tree_indices,
+            self.tuple_indices,
+            self.padding_mask,
+        )
+        aux_data = None
+        return (children, aux_data)
+
+    @classmethod
+    def tree_unflatten(
+        cls,
+        aux_data: None,
+        children: tuple[
+            tuple[Tree, ...],
+            tuple[jax.Array, ...],
+            jax.Array,
+            jax.Array,
+        ],
+    ) -> "BatchedTrees":
+        return cls(
+            stacks=children[0],
+            global_tree_indices=children[1],
+            tuple_indices=children[2],
+            padding_mask=children[3],
+        )
 
 
 @dataclasses.dataclass(frozen=True, order=True)
@@ -97,7 +127,7 @@ def _update_group(
             group.trees[i][tree_idx] = trees[tree_idx]
 
 
-def _generate_groups(
+def _group_tree_tuples(
     trees: Sequence[Tree],
     tuple_length: int,
     tuple_indices: Sequence[tuple[int, ...]],
@@ -210,7 +240,7 @@ def _batch_group(group: _Group, max_batch_size: int) -> BatchedTrees:
     )
 
 
-def generate_batched_trees(
+def batch_tree_tuples(
     trees: Sequence[Tree],
     tuple_length: int,
     tuple_indices: Sequence[tuple[int, ...]],
@@ -237,6 +267,6 @@ def generate_batched_trees(
         The set of tuples in the union of the BatchedTrees are equal to the set
         of input tree tuples.
     """
-    groups = _generate_groups(trees, tuple_length, tuple_indices)
+    groups = _group_tree_tuples(trees, tuple_length, tuple_indices)
 
     return [_batch_group(g, max_batch_size) for g in groups.values()]

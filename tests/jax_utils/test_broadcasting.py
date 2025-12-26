@@ -4,7 +4,7 @@ import itertools
 
 import numpy as np
 
-from slaterform.basis import broadcasting
+from slaterform.jax_utils import broadcasting
 
 
 @dataclasses.dataclass
