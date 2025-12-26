@@ -1,6 +1,6 @@
 import pytest
 
-from slaterform.hartree_fock import quartet as quartet_lib
+from slaterform.symmetry import quartet as quartet_lib
 
 
 @pytest.mark.parametrize(

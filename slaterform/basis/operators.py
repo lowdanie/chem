@@ -2,6 +2,7 @@ import dataclasses
 import itertools
 from typing import Callable, NamedTuple
 import functools
+
 import jax
 from jax import jit
 import jax.numpy as jnp
@@ -15,7 +16,7 @@ from slaterform.integrals import gaussian
 # The returned array has shape (d1+1, d1+1, d1+1, d2+1, d2+1, d2+1)
 # where d1 = basis1.max_degree and d2 = basis2.max_degree.
 OneElectronOperator = Callable[
-    [gaussian.GaussianBasis3d, gaussian.GaussianBasis3d], np.ndarray
+    [gaussian.GaussianBasis3d, gaussian.GaussianBasis3d], jax.Array
 ]
 
 # A two-electron operator between four BasisBlocks.
@@ -32,7 +33,7 @@ TwoElectronOperator = Callable[
         gaussian.GaussianBasis3d,
         gaussian.GaussianBasis3d,
     ],
-    np.ndarray,
+    jax.Array,
 ]
 
 

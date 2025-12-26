@@ -10,6 +10,7 @@ from jax.tree_util import register_pytree_node_class
 import numpy as np
 
 import slaterform as sf
+from tests.jax_utils import block_utils
 
 
 @register_pytree_node_class
@@ -427,27 +428,6 @@ def _unstack_tree(stacked_tree: Any) -> list[Any]:
     return unstacked_trees
 
 
-def _get_global_tuple_indices(
-    batched_tree: sf.BatchedTreeTuples,
-) -> list[tuple[int, ...]]:
-    tuple_size = batched_tree.tuple_indices.shape[2]
-    tuple_indices = batched_tree.tuple_indices.reshape(-1, tuple_size)
-    padding_mask = batched_tree.padding_mask.reshape(-1)
-    global_tuple_indices = []
-
-    for idx_tuple, padding_mask in zip(tuple_indices, padding_mask):
-        if padding_mask == 0:
-            continue
-
-        global_idx_tuple = tuple(
-            int(batched_tree.global_tree_indices[i][idx_tuple[i]])
-            for i in range(tuple_size)
-        )
-        global_tuple_indices.append(global_idx_tuple)
-
-    return global_tuple_indices
-
-
 def _validate_global_indices(
     batched_tree: sf.BatchedTreeTuples,
     global_trees: Sequence[TestNode],
@@ -477,7 +457,7 @@ def test_batch_tree_tuples_preserves_tuples(
     # Check that the batched tree tuples reconstruct the original tuples.
     reconstructed_tuples = []
     for bt in batched_tree_tuples:
-        reconstructed_tuples.extend(_get_global_tuple_indices(bt))
+        reconstructed_tuples.extend(block_utils.get_global_tuple_indices(bt))
 
     assert Counter(reconstructed_tuples) == Counter(case.tuple_indices)
 
@@ -495,3 +475,19 @@ def test_batch_tree_tuples_verify_global_indices(
 
     for bt in batched_tree_tuples:
         _validate_global_indices(bt, case.trees)
+
+
+@pytest.mark.parametrize("case", _BatchTreeTuplePropertyTestCases)
+def test_batch_tree_tuples_batch_sizes(
+    case: _BatchTreeTuplesPropertyTestCase,
+):
+    batched_tree_tuples = sf.jax_utils.batch_tree_tuples(
+        trees=case.trees,
+        tuple_length=case.tuple_length,
+        tuple_indices=case.tuple_indices,
+        max_batch_size=case.max_batch_size,
+    )
+
+    for bt in batched_tree_tuples:
+        batch_size = bt.tuple_indices.shape[0]
+        assert batch_size <= case.max_batch_size

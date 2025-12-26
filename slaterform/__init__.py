@@ -9,6 +9,7 @@ from .basis.contracted_gto import ContractedGTO, PrimitiveType
 
 from . import structure
 from .structure.atom import Atom
+from .structure.batched_molecular_basis import BatchedMolecularBasis
 from .structure.molecule import Molecule
 from .structure.molecular_basis import MolecularBasis
 
