@@ -170,7 +170,7 @@ def two_electron_matrix_jax(
     G = jnp.zeros((n_basis, n_basis), dtype=jnp.float64)
     batch_operator = jax.vmap(
         functools.partial(
-            operators.two_electron_matrix_jax, operator=coulomb.two_electron
+            operators.two_electron_matrix, operator=coulomb.two_electron
         )
     )
 

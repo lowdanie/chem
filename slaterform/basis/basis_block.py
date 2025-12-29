@@ -28,7 +28,8 @@ class BasisBlock:
     N_cart = sum_{l=0}^{num_shells - 1} (angular_momentum[l] + 2 choose 2)
     """
 
-    center: types.Position3D
+    # shape (3,)
+    center: types.Array
 
     # The common set of exponents for the Gaussian primitives in this block.
     # shape (K,)
@@ -36,7 +37,7 @@ class BasisBlock:
 
     # The powers (i,j,k) for each Cartesian basis function in this block.
     # shape (N_cart, 3)
-    cartesian_powers: types.IntArray
+    cartesian_powers: types.StaticArray
 
     # A map from the Gaussian primitives to their normalized contraction
     # coefficients for each Cartesian basis function in this block.
@@ -68,6 +69,9 @@ class BasisBlock:
         """The maximum angular momentum degree in this block."""
         return int(np.max(self.cartesian_powers))
 
+    def __post_init__(self):
+        types.promote_dataclass_fields(self)
+
     def tree_flatten(self):
         children = (
             self.center,
@@ -92,7 +96,7 @@ class BasisBlock:
 
 
 def _compute_normalization_factors(
-    max_degree: int, cartesian_powers: types.Array, exponents: types.Array
+    max_degree: int, cartesian_powers: types.StaticArray, exponents: types.Array
 ) -> jax.Array:
     f = functools.partial(
         cartesian.compute_normalization_constants, max_degree, cartesian_powers
@@ -100,8 +104,8 @@ def _compute_normalization_factors(
     return jax.vmap(f)(exponents).T
 
 
-def build_basis_block_jax(
-    gto: contracted_gto.ContractedGTO, center: types.Position3D
+def build_basis_block(
+    gto: contracted_gto.ContractedGTO, center: types.Array
 ) -> BasisBlock:
     """Builds a BasisBlock from a ContractedGTO at the given center."""
     if gto.primitive_type != contracted_gto.PrimitiveType.CARTESIAN:
@@ -134,10 +138,3 @@ def build_basis_block_jax(
         contraction_matrix=norm_factors * contraction_matrix,
         basis_transform=basis_transform,
     )
-
-
-def build_basis_block(
-    gto: contracted_gto.ContractedGTO, center: types.Position3D
-) -> BasisBlock:
-    jax_block = jit(build_basis_block_jax)(gto, center)
-    return jax.tree_util.tree_map(np.asarray, jax_block)

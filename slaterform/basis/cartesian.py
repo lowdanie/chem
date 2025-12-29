@@ -47,7 +47,7 @@ def generate_cartesian_powers(l: int) -> np.ndarray:
 
 
 def compute_normalization_constants(
-    max_degree: int, powers: types.IntArray, a: types.Scalar
+    max_degree: int, powers: types.StaticArray, a: types.Array
 ) -> jax.Array:
     """Computes the L^2 norms of the primitive Cartesian Gaussians
 
@@ -55,7 +55,7 @@ def compute_normalization_constants(
         max_degree: The maximum angular momentum degree.
         powers: A numpy array of shape (N, 3) containing the Cartesian
                 powers (i, j, k) for each basis function.
-        a: The exponent of the Gaussian primitives.
+        a: The exponent of the Gaussian primitives. Shape ()
 
 
     Returns:
@@ -65,7 +65,7 @@ def compute_normalization_constants(
     g = gaussian.GaussianBasis3d(
         max_degree=max_degree,
         exponent=a,
-        center=jnp.zeros(3),
+        center=jnp.zeros(3, dtype=a.dtype),
     )
 
     S = overlap.overlap_3d(g, g)  # shape (max_degree+1,) * 6

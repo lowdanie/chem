@@ -1,14 +1,13 @@
 import dataclasses
 import pytest
+import functools
 
+from jax import jit
 import numpy as np
 
 from slaterform.basis import basis_block
 from slaterform.basis import operators
-from slaterform.adapters import bse
-from slaterform.integrals import overlap
-from slaterform.integrals import kinetic
-from slaterform.integrals import coulomb
+import slaterform as sf
 
 
 @dataclasses.dataclass
@@ -148,9 +147,12 @@ class _TwoElectronCoulombMatrixTestCase:
     ],
 )
 def test_overlap_matrix(case):
-    result = operators.one_electron_matrix(
-        case.block1, case.block2, overlap.overlap_3d
+    kernel = jit(
+        functools.partial(
+            operators.one_electron_matrix, operator=sf.integrals.overlap_3d
+        )
     )
+    result = kernel(case.block1, case.block2)
     np.testing.assert_allclose(result, case.expected, rtol=1e-7, atol=1e-8)
 
 
@@ -268,9 +270,13 @@ def test_overlap_matrix(case):
     ],
 )
 def test_kinetic_matrix(case):
-    result = operators.one_electron_matrix(
-        case.block1, case.block2, kinetic.kinetic_3d
+    kernel = jit(
+        functools.partial(
+            operators.one_electron_matrix,
+            operator=sf.integrals.kinetic_3d,
+        )
     )
+    result = kernel(case.block1, case.block2)
     np.testing.assert_allclose(result, case.expected, rtol=1e-7, atol=1e-8)
 
 
@@ -378,11 +384,13 @@ def test_kinetic_matrix(case):
     ],
 )
 def test_one_electron_coulomb_matrix(case):
-    result = operators.one_electron_matrix(
-        case.block1,
-        case.block2,
-        lambda g1, g2: coulomb.one_electron(g1, g2, case.C),
+    kernel = jit(
+        functools.partial(
+            operators.one_electron_matrix,
+            operator=functools.partial(sf.integrals.one_electron, C=case.C),
+        )
     )
+    result = kernel(case.block1, case.block2)
 
     np.testing.assert_allclose(result, case.expected, rtol=1e-5, atol=1e-5)
 
@@ -549,9 +557,13 @@ def test_one_electron_coulomb_matrix(case):
     ],
 )
 def test_two_electron_matrix(case):
-    result = operators.two_electron_matrix(
-        case.block1, case.block2, case.block3, case.block4, coulomb.two_electron
+    kernel = jit(
+        functools.partial(
+            operators.two_electron_matrix,
+            operator=sf.integrals.two_electron,
+        )
     )
+    result = kernel(case.block1, case.block2, case.block3, case.block4)
     indices = tuple(case.expected_coords.T)
     values = result[indices]
     np.testing.assert_allclose(
@@ -590,7 +602,12 @@ def test_overlap_symmetry():
         basis_transform=np.eye(2),
     )
 
-    S = operators.one_electron_matrix(block, block, overlap.overlap_3d)
+    kernel = jit(
+        functools.partial(
+            operators.one_electron_matrix, operator=sf.integrals.overlap_3d
+        )
+    )
+    S = kernel(block, block)
     np.testing.assert_allclose(S, S.T, rtol=1e-7, atol=1e-8)
 
 
@@ -603,8 +620,33 @@ def test_kinetic_symmetry():
         basis_transform=np.eye(2),
     )
 
-    T = operators.one_electron_matrix(block, block, kinetic.kinetic_3d)
+    kernel = jit(
+        functools.partial(
+            operators.one_electron_matrix, operator=sf.integrals.kinetic_3d
+        )
+    )
+    T = kernel(block, block)
     np.testing.assert_allclose(T, T.T, rtol=1e-7, atol=1e-8)
+
+
+def test_one_electron_symmetry():
+    block = basis_block.BasisBlock(
+        center=np.array([0.0, 0.0, 0.0]),
+        exponents=np.array([1.0, 2.0]),
+        cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
+        contraction_matrix=np.array([[0.6, 0.4], [0.3, 0.7]]),
+        basis_transform=np.eye(2),
+    )
+    C = np.array([1.0, 0.0, 0.0])
+
+    kernel = jit(
+        functools.partial(
+            operators.one_electron_matrix,
+            functools.partial(sf.integrals.one_electron, C=C),
+        )
+    )
+    V = kernel(block, block)
+    np.testing.assert_allclose(V, V.T, rtol=1e-7, atol=1e-8)
 
 
 def test_two_electron_coulomb_symmetry():
@@ -648,17 +690,21 @@ def test_two_electron_coulomb_symmetry():
         (3, 2, 0, 1),  # (k,l,i,j)(k,l)
         (3, 2, 1, 0),  # (k,l,i,j)(k,l)(i,j)
     ]
-    V = operators.two_electron_matrix(
-        blocks[0], blocks[1], blocks[2], blocks[3], coulomb.two_electron
+
+    kernel = jit(
+        functools.partial(
+            operators.two_electron_matrix,
+            operator=sf.integrals.two_electron,
+        )
     )
+    V = kernel(blocks[0], blocks[1], blocks[2], blocks[3])
 
     for sigma in permutations:
-        V_perm = operators.two_electron_matrix(
+        V_perm = kernel(
             blocks[sigma[0]],
             blocks[sigma[1]],
             blocks[sigma[2]],
             blocks[sigma[3]],
-            coulomb.two_electron,
         )
         np.testing.assert_allclose(
             V.transpose(sigma), V_perm, rtol=1e-8, atol=1e-8

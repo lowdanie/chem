@@ -67,7 +67,7 @@ def _compute_primitive_integral(
     return raw_tensor[params.cartesian_indices]
 
 
-def one_electron_matrix_jax(
+def one_electron_matrix(
     block1: basis_block.BasisBlock,
     block2: basis_block.BasisBlock,
     operator: OneElectronOperator,
@@ -87,12 +87,12 @@ def one_electron_matrix_jax(
     # Generate all pairs of exponents.
     # flat_exps1 and flat_exps2 have shape (n_exps1*n_exps2,)
     exp_flat_product = broadcasting.flat_product(
-        block1.exponents, block2.exponents
+        jnp.asarray(block1.exponents), jnp.asarray(block2.exponents)
     )
 
     params = _PrimitiveIntegralParams(
         max_degrees=(block1.max_degree, block2.max_degree),
-        centers=(block1.center, block2.center),
+        centers=(jnp.asarray(block1.center), jnp.asarray(block2.center)),
         cartesian_indices=cartesian_indices,
         operator=operator,
     )
@@ -136,16 +136,7 @@ def one_electron_matrix_jax(
     return basis_matrix
 
 
-def one_electron_matrix(
-    block1: basis_block.BasisBlock,
-    block2: basis_block.BasisBlock,
-    operator: OneElectronOperator,
-) -> np.ndarray:
-    jitted_fn = jit(one_electron_matrix_jax, static_argnames="operator")
-    return np.array(jitted_fn(block1, block2, operator))
-
-
-def two_electron_matrix_jax(
+def two_electron_matrix(
     block1: basis_block.BasisBlock,
     block2: basis_block.BasisBlock,
     block3: basis_block.BasisBlock,
@@ -168,12 +159,12 @@ def two_electron_matrix_jax(
     # Generate all pairs of exponents.
     # flat_exps1 and flat_exps2 have shape (n_exps1*n_exps2,)
     exp_flat_product = broadcasting.flat_product(
-        *tuple(b.exponents for b in blocks)
+        *tuple(jnp.asarray(b.exponents) for b in blocks)
     )
 
     params = _PrimitiveIntegralParams(
         max_degrees=tuple(b.max_degree for b in blocks),
-        centers=tuple(b.center for b in blocks),
+        centers=tuple(jnp.asarray(b.center) for b in blocks),
         cartesian_indices=cartesian_indices,
         operator=operator,
     )
@@ -220,20 +211,3 @@ def two_electron_matrix_jax(
         cartesian_matrix,  # (n_cart1, n_cart2, n_cart3, n_cart4)
         optimize=True,
     )
-
-
-def two_electron_matrix(
-    block1: basis_block.BasisBlock,
-    block2: basis_block.BasisBlock,
-    block3: basis_block.BasisBlock,
-    block4: basis_block.BasisBlock,
-    operator: TwoElectronOperator,
-) -> np.ndarray:
-    """Computes the matrix elements for a two-electron operator.
-
-    Returns:
-      A numpy array of shape
-      (num_basis1, num_basis2, num_basis3, num_basis4)
-    """
-    jitted_fn = jit(two_electron_matrix_jax, static_argnames="operator")
-    return np.array(jitted_fn(block1, block2, block3, block4, operator))

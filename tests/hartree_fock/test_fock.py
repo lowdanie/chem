@@ -119,7 +119,7 @@ def _brute_force_two_electron_matrix(
 
     kernel = jit(
         functools.partial(
-            operators.two_electron_matrix_jax,
+            operators.two_electron_matrix,
             operator=sf.integrals.two_electron,
         )
     )

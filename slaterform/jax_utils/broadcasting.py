@@ -4,7 +4,9 @@ import jax.numpy as jnp
 from slaterform import types
 
 
-def broadcast_indices(*index_blocks: types.IntArray) -> tuple[jax.Array, ...]:
+def broadcast_indices(
+    *index_blocks: types.StaticArray,
+) -> tuple[jax.Array, ...]:
     """Reshapes columns of index blocks to broadcast against each other.
 
     Used to generate slicing indices for tensors constructed from multiple

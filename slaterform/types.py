@@ -1,9 +1,23 @@
+import dataclasses
+from typing import TypeAlias
+
 import jax
+from jax import numpy as jnp
 import numpy as np
 
-Array = np.ndarray | jax.Array
-Numeric = float | Array
+# Dynamic data
+Array: TypeAlias = np.ndarray | jax.Array
 
-IntArray = Array  # array of integers
-Position3D = Array  # shape (3,)
-Scalar = Numeric  # a single numeric value with no shape
+# Static metadata
+StaticArray: TypeAlias = np.ndarray
+
+
+def promote_dataclass_fields(obj):
+    """Converts all Array/StaticArray fields to jax/numpy arrays."""
+    for field in dataclasses.fields(obj):
+        value = getattr(obj, field.name)
+
+        if field.type == Array:
+            setattr(obj, field.name, jnp.asarray(value))
+        elif field.type == StaticArray:
+            setattr(obj, field.name, np.asarray(value))
