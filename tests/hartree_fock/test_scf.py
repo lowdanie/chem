@@ -1,7 +1,11 @@
 import pytest
 
+import jax
+from jax import jit
+from jax import numpy as jnp
 import numpy as np
 
+import slaterform as sf
 from slaterform.adapters import bse
 from slaterform.basis import contracted_gto
 from slaterform.structure import atom
@@ -9,14 +13,14 @@ from slaterform.structure import molecule
 from slaterform.structure import molecular_basis
 from slaterform.hartree_fock import scf
 
-_H2_MOLECULE = molecule.Molecule(
+_H2_MOLECULE = sf.Molecule(
     atoms=[
-        atom.Atom(
+        sf.Atom(
             symbol="H",
             number=1,
             position=np.array([0.0, 0.0, 0.0], dtype=np.float64),
         ),
-        atom.Atom(
+        sf.Atom(
             symbol="H",
             number=1,
             position=np.array([0.0, 0.0, 1.4], dtype=np.float64),
@@ -30,21 +34,21 @@ _EXPECTED_ELECTRONIC_ENERGY_H2 = -1.8310  # Hartree
 _EXPECTED_TOTAL_ENERGY_H2 = -1.1167  # Hartree
 
 # Water molecule in Bohr units. The geometry is from pubchem.
-_H20_MOLECULE = molecule.Molecule(
+_H20_MOLECULE = sf.Molecule(
     atoms=[
-        atom.Atom(
+        sf.Atom(
             symbol="O",
             number=8,
             position=np.array([0.0, 0.0, 0.0], dtype=np.float64),
         ),
-        atom.Atom(
+        sf.Atom(
             symbol="H",
             number=1,
             position=np.array(
                 [0.52421003, 1.68733646, 0.48074633], dtype=np.float64
             ),
         ),
-        atom.Atom(
+        sf.Atom(
             symbol="H",
             number=1,
             position=np.array(
@@ -81,14 +85,14 @@ _EXPECTED_ELECTRONIC_ENERGY_H2O = -84.04881208  # Hartree
 _EXPECTED_TOTAL_ENERGY_H20 = -74.96444758  # Hartree
 
 
-def _basis_fetcher(n: int) -> list[contracted_gto.ContractedGTO]:
+def _basis_fetcher(n: int) -> list[sf.ContractedGTO]:
     return bse.load("sto-3g", n)
 
 
 def test_H2():
-    mol_basis = molecular_basis.build(_H2_MOLECULE, _basis_fetcher)
-
-    result = scf.solve(mol_basis)
+    mol_basis = sf.structure.build_molecular_basis(_H2_MOLECULE, _basis_fetcher)
+    batched_basis = sf.structure.batch_basis(mol_basis)
+    result = scf.solve(batched_basis)
 
     np.testing.assert_almost_equal(
         result.electronic_energy,
@@ -104,9 +108,17 @@ def test_H2():
 
 @pytest.mark.slow
 def test_H2O():
-    mol_basis = molecular_basis.build(_H20_MOLECULE, _basis_fetcher)
+    mol_basis = sf.structure.build_molecular_basis(
+        _H20_MOLECULE, _basis_fetcher
+    )
+    batched_basis = sf.structure.batch_basis(mol_basis)
 
-    result = scf.solve(mol_basis)
+    options = scf.Options(
+        callback=lambda state: print(
+            f"Iteration {state.iteration}: E = {state.electronic_energy:.8f} Ha"
+        ),
+    )
+    result = scf.solve(batched_basis, options=options)
 
     np.testing.assert_almost_equal(
         result.electronic_energy,

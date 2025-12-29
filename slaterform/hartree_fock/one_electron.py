@@ -12,8 +12,6 @@ from slaterform.integrals import gaussian
 from slaterform.integrals import overlap
 from slaterform.integrals import kinetic
 from slaterform.integrals import coulomb
-from slaterform.structure import atom
-from slaterform.structure import molecular_basis
 from slaterform.structure import batched_molecular_basis as bmb
 from slaterform.basis import basis_block
 from slaterform.basis import operators
@@ -57,6 +55,9 @@ def _batch_step(
     i_block = jax.tree.map(lambda x: x[i_idx], params.stacks[0])
     j_block = jax.tree.map(lambda x: x[j_idx], params.stacks[1])
 
+    i_start = params.stack_starts[0][i_idx]
+    j_start = params.stack_starts[1][j_idx]
+
     # Compute the one-electron integrals for the batch.
     # shape: (batch_size, n_i_basis, n_j_basis)
     integral_matrix = params.batch_operator(i_block, j_block)
@@ -64,18 +65,22 @@ def _batch_step(
     new_matrix = scatter.add_tiles_2d(
         matrix=matrix,
         tiles=integral_matrix,
-        row_starts=params.stack_starts[0][i_idx],
-        col_starts=params.stack_starts[1][j_idx],
+        row_starts=i_start,
+        col_starts=j_start,
         mask=batch_data.mask,
     )
 
     # Also add the transpose for the symmetric entry if i!=j
+    off_diagonal_mask = batch_data.mask * (i_start != j_start).astype(
+        jnp.float32
+    )
+
     new_matrix = scatter.add_tiles_2d(
         matrix=new_matrix,
         tiles=integral_matrix.transpose((0, 2, 1)),
-        row_starts=params.stack_starts[1][j_idx],
-        col_starts=params.stack_starts[0][i_idx],
-        mask=batch_data.mask * (i_idx != j_idx),
+        row_starts=j_start,
+        col_starts=i_start,
+        mask=off_diagonal_mask,
     )
 
     return new_matrix, None

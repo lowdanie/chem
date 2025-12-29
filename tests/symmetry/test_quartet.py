@@ -1,4 +1,9 @@
+import collections
 import pytest
+
+import jax
+from jax import numpy as jnp
+import numpy as np
 
 from slaterform.symmetry import quartet as quartet_lib
 
@@ -31,6 +36,10 @@ def test_iter_canonical_quartets(n, expected):
     assert actual == expected
 
 
+def test_get_symmetries():
+    assert quartet_lib.get_symmetries() == quartet_lib._SYMMETRIES
+
+
 @pytest.mark.parametrize(
     "quartet,permutation,expected",
     [
@@ -46,48 +55,59 @@ def test_apply_permutation(quartet, permutation, expected):
 
 
 @pytest.mark.parametrize(
-    "quartet,expected_permutations",
+    "quartet,permutation,expected",
     [
         (
-            (1, 1, 1, 1),
-            [
-                (0, 1, 2, 3),
-            ],
+            (
+                jnp.array([4, 1]),
+                jnp.array([5, 2]),
+                jnp.array([6, 3]),
+                jnp.array([7, 4]),
+            ),
+            (0, 1, 2, 3),
+            (
+                jnp.array([4, 1]),
+                jnp.array([5, 2]),
+                jnp.array([6, 3]),
+                jnp.array([7, 4]),
+            ),
         ),
         (
-            (1, 1, 2, 2),
-            [
-                (0, 1, 2, 3),
-                (2, 3, 0, 1),
-            ],
+            (
+                jnp.array([4, 1]),
+                jnp.array([5, 2]),
+                jnp.array([6, 3]),
+                jnp.array([7, 4]),
+            ),
+            (0, 1, 3, 2),
+            (
+                jnp.array([4, 1]),
+                jnp.array([5, 2]),
+                jnp.array([7, 4]),
+                jnp.array([6, 3]),
+            ),
         ),
         (
-            (1, 2, 2, 2),
-            [
-                (0, 1, 2, 3),
-                (1, 0, 2, 3),
-                (2, 3, 0, 1),
-                (2, 3, 1, 0),
-            ],
-        ),
-        (
-            (1, 2, 3, 4),
-            [
-                (0, 1, 2, 3),
-                (1, 0, 2, 3),
-                (0, 1, 3, 2),
-                (1, 0, 3, 2),
-                (2, 3, 0, 1),
-                (3, 2, 0, 1),
-                (2, 3, 1, 0),
-                (3, 2, 1, 0),
-            ],
+            (
+                jnp.array([4, 1]),
+                jnp.array([5, 2]),
+                jnp.array([6, 3]),
+                jnp.array([7, 4]),
+            ),
+            (1, 0, 2, 3),
+            (
+                jnp.array([5, 2]),
+                jnp.array([4, 1]),
+                jnp.array([6, 3]),
+                jnp.array([7, 4]),
+            ),
         ),
     ],
 )
-def test_generate_permutations(quartet, expected_permutations):
-    actual_permutations = quartet_lib.generate_permutations(quartet)
-    assert set(actual_permutations) == set(expected_permutations)
+def test_apply_permutation_batch(quartet, permutation, expected):
+    actual = quartet_lib.apply_permutation(permutation, quartet)
+    for a, e in zip(actual, expected):
+        np.testing.assert_array_equal(a, e)
 
 
 @pytest.mark.parametrize(
@@ -95,14 +115,65 @@ def test_generate_permutations(quartet, expected_permutations):
     [1, 2, 3, 4, 5],
 )
 def test_generates_all_quartets(n):
-    all_quartets = []
+    quartet_counts = collections.defaultdict(float)
+
     for quartet in quartet_lib.iter_canonical_quartets(n):
-        for sigma in quartet_lib.generate_permutations(quartet):
-            all_quartets.append(quartet_lib.apply_permutation(sigma, quartet))
+        inv_stabilizer_norm = 1.0 / quartet_lib.compute_stabilizer_norm(quartet)
+        for sigma in quartet_lib.get_symmetries():
+            sigma_quartet = quartet_lib.apply_permutation(sigma, quartet)
+            quartet_counts[sigma_quartet] += inv_stabilizer_norm
+
+    for quartet, count in quartet_counts.items():
+        print(f"{quartet}: {count}")
 
     expected_n_quartets = n**4
-    assert len(all_quartets) == expected_n_quartets
-    assert len(set(all_quartets)) == expected_n_quartets
-    assert all(
-        all(0 <= index < n for index in quartet) for quartet in all_quartets
+    assert len(quartet_counts) == expected_n_quartets
+    assert len(set(quartet_counts)) == expected_n_quartets
+
+    for quartet, count in quartet_counts.items():
+        assert all(0 <= index < n for index in quartet)
+        np.testing.assert_allclose(count, 1.0, atol=1e-10, rtol=1e-10)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        [
+            ((0, 0, 0, 0), 8),
+            ((0, 0, 0, 1), 2),
+            ((0, 0, 1, 0), 2),
+            ((0, 0, 1, 1), 4),
+            ((0, 1, 0, 0), 2),
+            ((0, 1, 0, 1), 2),
+            ((0, 1, 1, 0), 2),
+            ((0, 1, 1, 1), 2),
+            ((1, 0, 0, 0), 2),
+            ((1, 0, 0, 1), 2),
+            ((1, 0, 1, 0), 2),
+            ((1, 0, 1, 1), 2),
+            ((1, 1, 0, 0), 4),
+            ((1, 1, 0, 1), 2),
+            ((1, 1, 1, 0), 2),
+            ((1, 1, 1, 1), 8),
+        ],
+        [
+            ((0, 1, 2, 3), 1),
+            ((0, 1, 2, 1), 1),
+            ((0, 1, 1, 2), 1),
+            ((2, 2, 3, 3), 4),
+            ((0, 1, 2, 0), 1),
+            ((0, 1, 2, 2), 2),
+        ],
+    ],
+)
+def test_compute_stabilizer_norm(case):
+    quartets = (
+        jnp.array([q[0] for q, _ in case]),
+        jnp.array([q[1] for q, _ in case]),
+        jnp.array([q[2] for q, _ in case]),
+        jnp.array([q[3] for q, _ in case]),
     )
+    expected = jnp.array([count for _, count in case])
+
+    actual = quartet_lib.compute_stabilizer_norm(quartets)
+    np.testing.assert_array_equal(actual, expected)

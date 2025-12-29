@@ -115,7 +115,7 @@ def test_1e_tuples(block_sizes, expected):
     ],
 )
 def test_2e_tuples(block_sizes, expected):
-    basis = build_basis([2, 3])
+    basis = build_basis(block_sizes)
     batched = sf.structure.batch_basis(basis, batch_size_2e=2)
 
     actual = []

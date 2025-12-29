@@ -1,9 +1,16 @@
 from typing import Iterable, Literal
 import itertools
+import functools
+
+import jax
+from jax import numpy as jnp
 
 # A quartet is a tuple of four indices which we will typically
 # denote as (i, j, k, l).
 Quartet = tuple[int, int, int, int]
+
+# A batch of quartets. All of the arrays have the same shape.
+BatchedQuartet = tuple[jax.Array, jax.Array, jax.Array, jax.Array]
 
 # A permutation sigma is a tuple of unique indices in {0, 1, 2, 3}.
 #
@@ -24,62 +31,16 @@ Quartet = tuple[int, int, int, int]
 _Index = Literal[0, 1, 2, 3]
 Permutation = tuple[_Index, _Index, _Index, _Index]
 
-# (i,j,k,l) -> (j,i,k,l)
-_SWAP_IJ: Permutation = (1, 0, 2, 3)
-
-# (i,j,k,l) -> (i,j,l,k)
-_SWAP_KL: Permutation = (0, 1, 3, 2)
-
-# (i,j,k,l) -> (k,l,i,j)
-_SWAP_IJ_KL: Permutation = (2, 3, 0, 1)
-
-
-def _compose_permutations(
-    sigma1: Permutation, sigma2: Permutation
-) -> Permutation:
-    """Returns the composition sigma1 o sigma2."""
-    return (
-        sigma2[sigma1[0]],
-        sigma2[sigma1[1]],
-        sigma2[sigma1[2]],
-        sigma2[sigma1[3]],
-    )
-
-
-def _generate_permutations(
-    eq_ij: bool, eq_kl: bool, eq_ij_kl: bool
-) -> list[Permutation]:
-    ops_ij = [False, True] if not eq_ij else [False]
-    ops_kl = [False, True] if not eq_kl else [False]
-    ops_ij_kl = [False, True] if not eq_ij_kl else [False]
-
-    permutations = []
-    for op_ij, op_kl, op_ij_kl in itertools.product(ops_ij, ops_kl, ops_ij_kl):
-        sigma = (0, 1, 2, 3)
-        if op_ij:
-            sigma = _compose_permutations(_SWAP_IJ, sigma)
-        if op_kl:
-            sigma = _compose_permutations(_SWAP_KL, sigma)
-        if op_ij_kl:
-            sigma = _compose_permutations(_SWAP_IJ_KL, sigma)
-        permutations.append(sigma)
-
-    return permutations
-
-
-def _generate_permutation_map() -> (
-    dict[tuple[bool, bool, bool], list[Permutation]]
-):
-    permutation_map = {}
-    for eq_ij, eq_kl, eq_ij_kl in itertools.product([False, True], repeat=3):
-        key = (eq_ij, eq_kl, eq_ij_kl)
-        permutation_map[key] = _generate_permutations(eq_ij, eq_kl, eq_ij_kl)
-
-    return permutation_map
-
-
-_PERMUTATION_MAP: dict[tuple[bool, bool, bool], list[Permutation]] = (
-    _generate_permutation_map()
+# Symmetries of the two-electron integrals.
+_SYMMETRIES: tuple[Permutation, ...] = (
+    (0, 1, 2, 3),  # Identity
+    (1, 0, 2, 3),  # Swap i-j
+    (0, 1, 3, 2),  # Swap k-l
+    (1, 0, 3, 2),  # Swap i-j, k-l
+    (2, 3, 0, 1),  # Swap pairs (ij)-(kl)
+    (3, 2, 0, 1),  # Swap pairs + Swap i-j (on new pos)
+    (2, 3, 1, 0),  # Swap pairs + Swap k-l (on new pos)
+    (3, 2, 1, 0),  # All swaps
 )
 
 
@@ -98,7 +59,13 @@ def iter_canonical_quartets(n: int) -> Iterable[Quartet]:
         yield (i, j, k, l)
 
 
-def apply_permutation(sigma: Permutation, quartet: Quartet) -> Quartet:
+def get_symmetries():
+    return _SYMMETRIES
+
+
+def apply_permutation(
+    sigma: Permutation, quartet: BatchedQuartet
+) -> BatchedQuartet:
     return (
         quartet[sigma[0]],
         quartet[sigma[1]],
@@ -107,10 +74,23 @@ def apply_permutation(sigma: Permutation, quartet: Quartet) -> Quartet:
     )
 
 
-def generate_permutations(quartet: Quartet) -> list[Permutation]:
-    i, j, k, l = quartet
-    eq_ij = i == j
-    eq_kl = k == l
-    eq_ij_kl = (i, j) == (k, l)
+def compute_stabilizer_norm(quartet: BatchedQuartet) -> jax.Array:
+    """Counts the number of symmetries that map the quartet onto itself.
 
-    return _PERMUTATION_MAP[(eq_ij, eq_kl, eq_ij_kl)]
+    Args:
+        quartet: A batched quartet of shape (batch_size, )
+
+    Returns:
+        A jax array of shape (batch_size, ) containing the count of
+        symmetries mapping each quartet onto itself.
+    """
+    count = jax.numpy.zeros_like(quartet[0], dtype=jax.numpy.int32)
+
+    for sigma in get_symmetries():
+        permuted = apply_permutation(sigma, quartet)
+        matches = tuple(permuted[i] == quartet[i] for i in range(4))
+        is_stabilizer = functools.reduce(jnp.logical_and, matches)
+
+        count += is_stabilizer
+
+    return count

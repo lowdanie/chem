@@ -1,38 +1,38 @@
 import itertools
+import functools
 
+import jax
+from jax import jit
+from jax import numpy as jnp
 import numpy as np
 
-from slaterform.basis import basis_block
+import slaterform as sf
 from slaterform.basis import operators
-from slaterform.integrals import coulomb
-from slaterform.structure import atom
-from slaterform.structure import molecular_basis
-from slaterform.hartree_fock import fock
 
 _TEST_ATOMS = [
-    atom.Atom(
+    sf.Atom(
         symbol="H",
         number=1,
         position=np.array([0.0, 0.0, 0.0]),
     ),
-    atom.Atom(
+    sf.Atom(
         symbol="O",
         number=8,
         position=np.array([0.0, 0.0, 1.0]),
     ),
 ]
 
-_TEST_MOL_BASIS = molecular_basis.MolecularBasis(
+_TEST_MOL_BASIS = sf.MolecularBasis(
     atoms=_TEST_ATOMS,
     basis_blocks=[
-        basis_block.BasisBlock(
+        sf.BasisBlock(
             center=np.array([0.0, 0.0, 0.0]),
             exponents=np.array([0.1], dtype=np.float64),
             cartesian_powers=np.array([[0, 0, 0]]),
             contraction_matrix=np.array([[1.0]], dtype=np.float64),
             basis_transform=np.eye(1, dtype=np.float64),
         ),
-        basis_block.BasisBlock(
+        sf.BasisBlock(
             center=np.array([0.0, 0.0, 1.0]),
             exponents=np.array([0.2], dtype=np.float64),
             cartesian_powers=np.array(
@@ -58,31 +58,84 @@ _TEST_P = np.array(
     ]
 )
 
+# Computed via _brute_force_two_electron_matrix(_TEST_MOL_BASIS, _TEST_P)
+_EXPECTED_G = np.array(
+    [
+        [
+            2.04806831e03,
+            5.36657281e02,
+            -8.60207706e01,
+            -6.03069706e01,
+            -1.26324841e02,
+        ],
+        [
+            5.36657281e02,
+            2.10668368e02,
+            -2.83205385e01,
+            -1.97124166e01,
+            -6.40328089e00,
+        ],
+        [
+            -8.60207706e01,
+            -2.83205385e01,
+            2.40075445e02,
+            -3.11709391e00,
+            1.62207725e00,
+        ],
+        [
+            -6.03069706e01,
+            -1.97124166e01,
+            -3.11709391e00,
+            1.33094254e02,
+            8.26921197e-01,
+        ],
+        [
+            -1.26324841e02,
+            -6.40328089e00,
+            1.62207725e00,
+            8.26921197e-01,
+            6.21964020e01,
+        ],
+    ]
+)
 
-def test_two_electron_matrix(mol_basis=_TEST_MOL_BASIS, P=_TEST_P):
-    # Compute the two-electron Fock matrix G by brute force.
-    # First compute all the two-electron integrals.
+
+def _brute_force_two_electron_matrix(
+    mol_basis: sf.MolecularBasis, P: np.ndarray
+) -> np.ndarray:
     n_basis = mol_basis.n_basis
     blocks = mol_basis.basis_blocks
     slices = mol_basis.block_slices
     V = np.zeros((n_basis, n_basis, n_basis, n_basis), dtype=np.float64)
 
-    for i, j, k, l in itertools.product(range(len(blocks)), repeat=4):
-        V_block = operators.two_electron_matrix(
-            blocks[i], blocks[j], blocks[k], blocks[l], coulomb.two_electron
+    kernel = jit(
+        functools.partial(
+            operators.two_electron_matrix_jax,
+            operator=sf.integrals.two_electron,
         )
+    )
+    for i, j, k, l in itertools.product(range(len(blocks)), repeat=4):
+        V_block = kernel(blocks[i], blocks[j], blocks[k], blocks[l])
         V[slices[i], slices[j], slices[k], slices[l]] = V_block
 
     # Compute G using the definition.
     # G_{ij} = sum_{kl} P_{kl} ( (ij|lk) - 0.5 (ik|lj) )
-    G_expected = np.zeros((n_basis, n_basis), dtype=np.float64)
+    G = np.zeros((n_basis, n_basis), dtype=np.float64)
     for i, j, k, l in itertools.product(range(n_basis), repeat=4):
-        G_expected[i, j] += P[k, l] * (V[i, j, l, k] - 0.5 * V[i, k, l, j])
+        G[i, j] += P[k, l] * (V[i, j, l, k] - 0.5 * V[i, k, l, j])
 
-    # Compute G using the two_electron_matrix function.
-    G_result = fock.two_electron_matrix(mol_basis, P)
+    return G
 
-    np.testing.assert_allclose(G_result, G_expected, rtol=1e-7, atol=1e-7)
+
+def test_two_electron_matrix(
+    mol_basis=_TEST_MOL_BASIS, P=_TEST_P, expected=_EXPECTED_G
+):
+    batched_basis = sf.structure.batch_basis(mol_basis)
+    P_jax = jnp.asarray(P)
+
+    G_result = sf.hartree_fock.two_electron_matrix_jax(batched_basis, P_jax)
+
+    np.testing.assert_allclose(G_result, expected, rtol=1e-7, atol=1e-7)
 
 
 def test_electronic_energy():
@@ -120,6 +173,6 @@ def test_electronic_energy():
         E_expected += P[i, j] * (H_core[j, i] + F[j, i])
     E_expected *= 0.5
 
-    E_result = fock.electronic_energy(H_core, F, P)
+    E_result = jit(sf.hartree_fock.electronic_energy_jax)(H_core, F, P)
 
     np.testing.assert_almost_equal(E_result, E_expected, decimal=10)

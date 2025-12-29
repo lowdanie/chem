@@ -1,15 +1,20 @@
 import dataclasses
 from typing import Callable, Optional
+import time
 
-import numpy as np
-import numpy.typing as npt
+import jax
+from jax import jit
+from jax import numpy as jnp
+from jax.tree_util import register_pytree_node_class
+
 
 from slaterform.hartree_fock import density
 from slaterform.hartree_fock import fock
 from slaterform.hartree_fock import one_electron
 from slaterform.hartree_fock import roothaan
-from slaterform.structure import molecular_basis
+from slaterform.structure import batched_molecular_basis as bmb
 from slaterform.structure import nuclear
+from slaterform import types
 
 SolverCallback = Callable[["State"], None]
 
@@ -21,42 +26,77 @@ class Options:
     callback: Optional[SolverCallback] = None
 
 
+@register_pytree_node_class
 @dataclasses.dataclass
 class Context:
-    nuclear_energy: float
+    nuclear_energy: jax.Array
 
     # Overlap matrix. shape (n_basis, n_basis)
-    S: npt.NDArray[np.float64]
+    S: jax.Array
 
-    # Orthogonalizer matrix. shape (n_basis, n_ind)
-    X: npt.NDArray[np.float64]
+    # Orthogonalizer matrix. shape (n_basis, n_basis)
+    X: jax.Array
 
     # Core Hamiltonian matrix. shape (n_basis, n_basis)
-    H_core: npt.NDArray[np.float64]
+    H_core: jax.Array
+
+    def tree_flatten(self):
+        children = (
+            self.nuclear_energy,
+            self.S,
+            self.X,
+            self.H_core,
+        )
+        aux_data = None
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(*children)
 
 
+@register_pytree_node_class
 @dataclasses.dataclass
 class State:
-    iteration: int
+    iteration: jax.Array
     context: Context
 
-    # Molecular orbital coefficients matrix. shape (n_basis, n_ind)
-    C: npt.NDArray[np.float64]
+    # Molecular orbital coefficients matrix. shape (n_basis, n_basis)
+    C: jax.Array
 
     # Closed shell density matrix. shape (n_basis, n_basis)
-    P: npt.NDArray[np.float64]
+    P: jax.Array
 
     # Fock matrix. shape (n_basis, n_basis)
-    F: npt.NDArray[np.float64]
+    F: jax.Array
 
-    electronic_energy: float
-    total_energy: float
+    electronic_energy: jax.Array
+    total_energy: jax.Array
 
     # Fock matrix eigenvalues. shape (n_basis, )
-    orbital_energies: npt.NDArray[np.float64]
+    orbital_energies: jax.Array
 
     # Change in density matrix. ||P_new - P_old||_2
-    delta_P: float
+    delta_P: jax.Array
+
+    def tree_flatten(self):
+        children = (
+            self.iteration,
+            self.context,
+            self.C,
+            self.P,
+            self.F,
+            self.electronic_energy,
+            self.total_energy,
+            self.orbital_energies,
+            self.delta_P,
+        )
+        aux_data = None
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(*children)
 
 
 @dataclasses.dataclass
@@ -64,51 +104,51 @@ class Result:
     converged: bool
     iterations: int
 
-    electronic_energy: float
-    nuclear_energy: float
-    total_energy: float
+    electronic_energy: jax.Array
+    nuclear_energy: jax.Array
+    total_energy: jax.Array
 
     # Fock matrix eigenvalues.
     # shape (n_basis, )
-    orbital_energies: npt.NDArray[np.float64]
+    orbital_energies: jax.Array
 
     # The molecular orbital coefficients matrix
     # shape (n_basis, n_basis)
-    orbitals: npt.NDArray[np.float64]
+    orbitals: jax.Array
 
     # The closed shell density matrix.
     # shape (n_basis, n_basis)
-    density: npt.NDArray[np.float64]
+    density: jax.Array
 
 
-def _build_initial_state(mol_basis: molecular_basis.MolecularBasis) -> State:
-    n_basis = mol_basis.n_basis
-    S = one_electron.overlap_matrix(mol_basis)
-    H_core = one_electron.core_hamiltonian_matrix(mol_basis)
-    nuclear_energy = nuclear.repulsion_energy(mol_basis.molecule)
+def build_initial_state(basis: bmb.BatchedMolecularBasis) -> State:
+    n_basis = basis.basis.n_basis
+    S = one_electron.overlap_matrix_jax(basis)
+    H_core = one_electron.core_hamiltonian_matrix_jax(basis)
+    nuclear_energy = nuclear.repulsion_energy_jax(basis.basis.molecule)
 
     return State(
-        iteration=0,
+        iteration=jnp.array(0, dtype=jnp.int32),
         context=Context(
             nuclear_energy=nuclear_energy,
             S=S,
-            X=roothaan.orthogonalize_basis(S),
+            X=roothaan.orthogonalize_basis_jax(S),
             H_core=H_core,
         ),
-        C=np.zeros((n_basis, n_basis), dtype=np.float64),
-        P=np.zeros((n_basis, n_basis), dtype=np.float64),
+        C=jnp.zeros((n_basis, n_basis), dtype=jnp.float64),
+        P=jnp.zeros((n_basis, n_basis), dtype=jnp.float64),
         F=H_core,
-        electronic_energy=0.0,
+        electronic_energy=jnp.asarray(0.0, dtype=jnp.float64),
         total_energy=nuclear_energy,
-        orbital_energies=np.zeros(n_basis, dtype=np.float64),
-        delta_P=np.inf,
+        orbital_energies=jnp.zeros(n_basis, dtype=jnp.float64),
+        delta_P=jnp.array(jnp.inf, dtype=jnp.float64),
     )
 
 
-def _build_result(state: State, converged: bool) -> Result:
+def build_result(state: State, converged: bool) -> Result:
     return Result(
         converged=converged,
-        iterations=state.iteration,
+        iterations=state.iteration.item(),
         electronic_energy=state.electronic_energy,
         nuclear_energy=state.context.nuclear_energy,
         total_energy=state.total_energy,
@@ -118,19 +158,20 @@ def _build_result(state: State, converged: bool) -> Result:
     )
 
 
-def _scf_step(
+def scf_step(
     state: State,
-    mol_basis: molecular_basis.MolecularBasis,
+    basis: bmb.BatchedMolecularBasis,
 ) -> State:
     # Solve for new orbital coefficients and density.
-    # C has shape (n_basis, n_ind)
-    orbital_energies, C = roothaan.solve(state.F, state.context.X)
-    P = density.closed_shell_matrix(C, mol_basis.n_electrons)
+    # C has shape (n_basis, n_basis)
+    orbital_energies, C = roothaan.solve_jax(state.F, state.context.X)
+    # shape (n_basis, n_basis)
+    P = density.closed_shell_matrix_jax(C, basis.basis.n_electrons)
 
     # Compute the Fock matrix and energy for the new density P.
-    G = fock.two_electron_matrix(mol_basis, P)  # shape (n_basis, n_basis)
+    G = fock.two_electron_matrix_jax(basis, P)  # shape (n_basis, n_basis)
     F = state.context.H_core + G  # shape (n_basis, n_basis)
-    electronic_energy = fock.electronic_energy(state.context.H_core, F, P)
+    electronic_energy = fock.electronic_energy_jax(state.context.H_core, F, P)
 
     return State(
         iteration=state.iteration + 1,
@@ -141,12 +182,12 @@ def _scf_step(
         electronic_energy=electronic_energy,
         total_energy=electronic_energy + state.context.nuclear_energy,
         orbital_energies=orbital_energies,
-        delta_P=float(np.linalg.norm(P - state.P)),
+        delta_P=jnp.linalg.norm(P - state.P),
     )
 
 
 def solve(
-    mol_basis: molecular_basis.MolecularBasis,
+    basis: bmb.BatchedMolecularBasis,
     options: Options = Options(),
 ) -> Result:
     """Performs the self-consistent field (SCF) procedure to compute the
@@ -155,18 +196,20 @@ def solve(
     Returns:
         A Result object containing the final energy and orbital coefficients.
     """
-    state = _build_initial_state(mol_basis)
+    state = build_initial_state(basis)
     converged = False
 
+    step_fn = jit(scf_step)
+
     for _ in range(options.max_iterations):
-        state = _scf_step(state, mol_basis)
+        state = step_fn(state, basis)
 
         if options.callback is not None:
             options.callback(state)
 
         # Check for convergence.
-        if state.delta_P < options.convergence_threshold:
+        if state.delta_P.item() < options.convergence_threshold:
             converged = True
             break
 
-    return _build_result(state, converged)
+    return build_result(state, converged)

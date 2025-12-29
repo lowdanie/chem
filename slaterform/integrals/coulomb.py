@@ -279,6 +279,9 @@ def _horizontal_transfer(
       The values I[...,i,...,j] are only valid when 0 <= i < size_new - j
       where i is an index at src_dim.
     """
+    if size_new <= 1:
+        return I[..., None]
+
     # Move src_dim to the end
     I_j0 = jnp.moveaxis(I, src_dim, -1)
     params = _HorizontalTransferParams(AB=A - B)
@@ -383,6 +386,9 @@ def _electron_transfer(
       The values I[...,i,...,j] are only valid when 0 <= i < size_new - j
       where i is an index at src_dim.
     """
+    if size_new <= 1:
+        return I[..., None]
+
     a, b, c, d = exponents
     A, B, C, D = centers
 

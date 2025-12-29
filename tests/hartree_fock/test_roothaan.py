@@ -1,6 +1,8 @@
 import dataclasses
 import pytest
 
+import jax
+from jax import numpy as jnp
 import numpy as np
 
 from slaterform.hartree_fock import roothaan
@@ -10,7 +12,7 @@ from slaterform.hartree_fock import roothaan
 class _OrthogonalizeBasisTestCase:
     # S = basis @ basis.T
     # shape: (l, n_basis)
-    basis: np.ndarray
+    basis: jax.Array
 
     # Number of independent basis functions
     n_ind: int
@@ -20,11 +22,11 @@ class _OrthogonalizeBasisTestCase:
 class _SolveTestCase:
     # Fock matrix. Symmetric.
     # shape: (n_basis, n_basis)
-    F: np.ndarray
+    F: jax.Array
 
     # S = basis @ basis.T
     # shape: (l, n_basis)
-    basis: np.ndarray
+    basis: jax.Array
 
     # Number of independent basis functions
     n_ind: int
@@ -35,37 +37,37 @@ class _SolveTestCase:
     "case",
     [
         _OrthogonalizeBasisTestCase(
-            basis=np.array(
+            basis=jnp.array(
                 [
                     [1, 0],
                     [0, 1],
                 ],
-                dtype=np.float64,
+                dtype=jnp.float64,
             ),
             n_ind=2,
         ),
         _OrthogonalizeBasisTestCase(
-            basis=np.array(
+            basis=jnp.array(
                 [
                     [1, 0, 4],
                     [2, 3, 1],
                     [3, 1, 3],
                     [4, 5, 2],
                 ],
-                dtype=np.float64,
+                dtype=jnp.float64,
             ),
             n_ind=3,
         ),
         # linearly dependent basis
         _OrthogonalizeBasisTestCase(
-            basis=np.array(
+            basis=jnp.array(
                 [
                     [1, 2, 4],
                     [2, 4, 1],
                     [3, 6, 3],
                     [4, 8, 2],
                 ],
-                dtype=np.float64,
+                dtype=jnp.float64,
             ),
             n_ind=2,
         ),
@@ -74,15 +76,16 @@ class _SolveTestCase:
 def test_orthogonalize_basis(case):
     n_basis = case.basis.shape[1]
 
-    S = np.matmul(case.basis.T, case.basis)  # shape (n_basis, n_basis)
-    X = roothaan.orthogonalize_basis(S)  # shape (n_basis, k <= n_basis)
-    assert X.shape == (n_basis, case.n_ind)
+    S = case.basis.T @ case.basis  # shape (n_basis, n_basis)
+    X = roothaan.orthogonalize_basis_jax(S)  # shape (n_basis, n_basis)
+    projection = np.diag(
+        np.concatenate([np.zeros(n_basis - case.n_ind), np.ones(case.n_ind)])
+    )
 
-    # Check that X.T @ S @ X = I
-    identity = np.eye(case.n_ind, dtype=np.float64)
+    # Check that X.T @ S @ X = projection
     np.testing.assert_allclose(
-        np.matmul(X.T, np.matmul(S, X)),
-        identity,
+        X.T @ S @ X,
+        projection,
         rtol=1e-7,
         atol=1e-7,
     )
@@ -92,24 +95,24 @@ def test_orthogonalize_basis(case):
     "case",
     [
         _SolveTestCase(
-            F=np.array(
+            F=jnp.array(
                 [
                     [1, 0],
                     [0, 1],
                 ],
-                dtype=np.float64,
+                dtype=jnp.float64,
             ),
-            basis=np.array(
+            basis=jnp.array(
                 [
                     [1, 0],
                     [0, 1],
                 ],
-                dtype=np.float64,
+                dtype=jnp.float64,
             ),
             n_ind=2,
         ),
         _SolveTestCase(
-            F=np.array(
+            F=jnp.array(
                 [
                     [1, 2, 3],
                     [2, 4, 5],
@@ -117,28 +120,28 @@ def test_orthogonalize_basis(case):
                 ],
                 dtype=np.float64,
             ),
-            basis=np.array(
+            basis=jnp.array(
                 [
                     [1, 0, 4],
                     [2, 3, 1],
                     [3, 1, 3],
                     [4, 5, 2],
                 ],
-                dtype=np.float64,
+                dtype=jnp.float64,
             ),
             n_ind=3,
         ),
         # linearly dependent basis
         _SolveTestCase(
-            F=np.array(
+            F=jnp.array(
                 [
                     [1, 2, 3],
                     [2, 4, 6],
                     [3, 6, 6],
                 ],
-                dtype=np.float64,
+                dtype=jnp.float64,
             ),
-            basis=np.array(
+            basis=jnp.array(
                 [
                     [1, 2, 4],
                     [2, 4, 1],
@@ -152,17 +155,15 @@ def test_orthogonalize_basis(case):
     ],
 )
 def test_solve(case):
-    S = np.matmul(case.basis.T, case.basis)  # shape (n_basis, n_ind)
-    X = roothaan.orthogonalize_basis(S)  # shape (n_basis, n_ind)
+    S = case.basis.T @ case.basis  # shape (n_basis, n_basis)
+    X = roothaan.orthogonalize_basis_jax(S)  # shape (n_basis, n_basis)
 
-    # orbital_energies: shape (n_ind,)
-    # C_new: shape (n_basis, n_ind)
-    orbital_energies, C_new = roothaan.solve(case.F, X)
+    # orbital_energies: shape (n_basis,)
+    # C_new: shape (n_basis, n_basis)
+    orbital_energies, C_new = roothaan.solve_jax(case.F, X)
 
     # Check that F C = S C E
-    F_C = np.matmul(case.F, C_new)  # shape (n_basis, n_ind)
-    S_C_E = np.matmul(
-        S, np.matmul(C_new, np.diag(orbital_energies))
-    )  # shape (n_basis, n_ind)
+    F_C = case.F @ C_new
+    S_C_E = S @ C_new @ np.diag(orbital_energies)
 
     np.testing.assert_allclose(F_C, S_C_E, rtol=1e-7, atol=1e-7)

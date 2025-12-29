@@ -1,19 +1,18 @@
 import dataclasses
 from collections.abc import Sequence
-from typing import Any, Generic, TypeVar, Hashable
+from typing import Any, TypeVar, Hashable
 
 import jax
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 import numpy as np
 
-# A generic type representing a jax pytree.
-Tree = TypeVar("Tree")
+Tree = Any
 
 
 @register_pytree_node_class
 @dataclasses.dataclass(frozen=True)
-class BatchedTreeTuples(Generic[Tree]):
+class BatchedTreeTuples:
     """A batch of pytree tuples for jax processing.
 
     The trees in each stack all have the same static signature.
@@ -77,7 +76,7 @@ _GroupKey = tuple[TreeSignature, ...]
 
 
 @dataclasses.dataclass(frozen=True)
-class _Group(Generic[Tree]):
+class _Group:
     """A group of pytrees with the same signature."""
 
     # trees[i] is dict of trees keyed with their global index.

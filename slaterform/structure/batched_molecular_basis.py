@@ -29,10 +29,10 @@ class BatchedMolecularBasis:
     block_starts: types.Array
 
     # Batches for 1-electron integrals (H_core, S). Tuple length = 2.
-    batches_1e: Sequence[batching.BatchedTreeTuples[basis_block.BasisBlock]]
+    batches_1e: Sequence[batching.BatchedTreeTuples]
 
     # Batches for 2-electron integrals. Tuple length = 4.
-    batches_2e: Sequence[batching.BatchedTreeTuples[basis_block.BasisBlock]]
+    batches_2e: Sequence[batching.BatchedTreeTuples]
 
     def tree_flatten(self):
         children = (
@@ -54,7 +54,7 @@ class BatchedMolecularBasis:
         )
 
 
-def build(
+def batch_basis(
     basis: molecular_basis.MolecularBasis,
     batch_size_1e: int = 4096,
     batch_size_2e: int = 2048,

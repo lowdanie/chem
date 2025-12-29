@@ -1,7 +1,9 @@
+import jax
+from jax import numpy as jnp
 import numpy as np
 
 
-def closed_shell_matrix(C: np.ndarray, num_electrons: int) -> np.ndarray:
+def closed_shell_matrix_jax(C: jax.Array, num_electrons: int) -> jax.Array:
     """Compute the closed shell density matrix for the orbital coefficients.
 
     Args:
@@ -17,4 +19,8 @@ def closed_shell_matrix(C: np.ndarray, num_electrons: int) -> np.ndarray:
         )
 
     C_occ = C[:, : num_electrons // 2]
-    return 2 * np.matmul(C_occ, C_occ.T)
+    return 2 * C_occ @ C_occ.T
+
+
+def closed_shell_matrix(C: np.ndarray, num_electrons: int) -> np.ndarray:
+    return np.array(closed_shell_matrix_jax(jnp.array(C), num_electrons))
