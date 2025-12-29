@@ -42,7 +42,6 @@ _TEST_MOL_BASIS = sf.MolecularBasis(
             basis_transform=np.eye(4, dtype=np.float64),
         ),
     ],
-    block_slices=[slice(0, 1), slice(1, 5)],
 )
 
 

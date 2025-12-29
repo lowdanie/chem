@@ -46,7 +46,6 @@ class _EvaluateDensityTestCase:
                         basis_transform=np.eye(2),
                     ),
                 ],
-                block_slices=[slice(0, 2)],
             ),
             P=np.array([[1.0, 2.0], [3.0, 4.0]]),
             grid=analysis_grid.RegularGrid(

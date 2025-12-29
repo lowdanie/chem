@@ -1,7 +1,7 @@
 import itertools
 import functools
+from collections.abc import Sequence
 
-import jax
 from jax import jit
 from jax import numpy as jnp
 import numpy as np
@@ -45,7 +45,6 @@ _TEST_MOL_BASIS = sf.MolecularBasis(
             basis_transform=np.eye(4, dtype=np.float64),
         ),
     ],
-    block_slices=[slice(0, 1), slice(1, 5)],
 )
 
 _TEST_P = np.array(
@@ -100,12 +99,22 @@ _EXPECTED_G = np.array(
 )
 
 
+def _build_slices(block_sizes: Sequence[int]) -> list[slice]:
+    slices = []
+    current = 0
+    for size in block_sizes:
+        slices.append(slice(current, current + size))
+        current += size
+    return slices
+
+
 def _brute_force_two_electron_matrix(
     mol_basis: sf.MolecularBasis, P: np.ndarray
 ) -> np.ndarray:
     n_basis = mol_basis.n_basis
     blocks = mol_basis.basis_blocks
-    slices = mol_basis.block_slices
+    slices = _build_slices([block.n_basis for block in blocks])
+
     V = np.zeros((n_basis, n_basis, n_basis, n_basis), dtype=np.float64)
 
     kernel = jit(

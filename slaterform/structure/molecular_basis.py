@@ -22,10 +22,6 @@ class MolecularBasis:
     atoms: Sequence[atom.Atom]
     basis_blocks: Sequence[basis_block.BasisBlock]
 
-    # The start and end indices of each basis block in the full basis set.
-    # length: len(basis_blocks)
-    block_slices: Sequence[slice]
-
     @property
     def molecule(self) -> molecule.Molecule:
         """The molecule associated with this molecular basis."""
@@ -46,13 +42,13 @@ class MolecularBasis:
             self.atoms,
             self.basis_blocks,
         )
-        aux_data = tuple((s.start, s.stop, s.step) for s in self.block_slices)
+        aux_data = None
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(
         cls,
-        aux_data: tuple[tuple[int, int, int], ...],
+        aux_data,
         children: tuple[
             Sequence[atom.Atom],
             Sequence[basis_block.BasisBlock],
@@ -61,17 +57,7 @@ class MolecularBasis:
         return cls(
             atoms=children[0],
             basis_blocks=children[1],
-            block_slices=tuple(slice(*s) for s in aux_data),
         )
-
-
-def _build_slices(block_sizes: Sequence[int]) -> list[slice]:
-    slices = []
-    current = 0
-    for size in block_sizes:
-        slices.append(slice(current, current + size))
-        current += size
-    return slices
 
 
 def build_jax(
@@ -85,19 +71,13 @@ def build_jax(
             for gto in contracted_gtos
         )
 
-    block_sizes = [int(block.n_basis) for block in basis_blocks]
-
     return MolecularBasis(
         atoms=molecule.atoms,
         basis_blocks=basis_blocks,
-        block_slices=_build_slices(block_sizes),
     )
 
 
 def build(
     molecule: molecule.Molecule, basis_fetcher: BasisFetcher
 ) -> MolecularBasis:
-    mol_jax = jit(build_jax, static_argnames="basis_fetcher")(
-        molecule, basis_fetcher
-    )
-    return jax.tree_util.tree_map(np.array, mol_jax)
+    return build_jax(molecule, basis_fetcher)

@@ -54,7 +54,6 @@ def test_build_molecular_basis():
 
     expected_num_basis = 6
     expected_num_electrons = 9
-    expected_block_slices = [slice(0, 1), slice(1, 2), slice(2, 6)]
 
     mol_basis = jit(
         sf.structure.build_molecular_basis_jax, static_argnames="basis_fetcher"
@@ -62,7 +61,6 @@ def test_build_molecular_basis():
 
     assert mol_basis.n_basis == expected_num_basis
     assert mol_basis.n_electrons == expected_num_electrons
-    assert list(mol_basis.block_slices) == expected_block_slices
 
     assert len(mol_basis.atoms) == 2
     _assert_atoms_equal(mol_basis.atoms[0], mol.atoms[0])
@@ -97,7 +95,6 @@ def test_molecule_property():
     mol_basis = sf.MolecularBasis(
         atoms=atoms,
         basis_blocks=[],
-        block_slices=[],
     )
 
     mol = mol_basis.molecule

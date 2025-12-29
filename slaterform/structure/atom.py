@@ -13,7 +13,7 @@ class Atom:
     number: int  # Atomic number
 
     # Position in Bohr units
-    position: types.Position3D
+    position: types.Array
 
     def tree_flatten(self):
         children = (self.position,)

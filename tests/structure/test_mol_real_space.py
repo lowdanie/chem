@@ -58,7 +58,6 @@ class _EvaluateTestCase:
                         basis_transform=np.eye(2),
                     ),
                 ],
-                block_slices=[],
             ),
             points=np.array(
                 [
