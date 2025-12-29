@@ -1,6 +1,5 @@
 import dataclasses
 from typing import Callable, Optional
-import time
 
 import jax
 from jax import jit
