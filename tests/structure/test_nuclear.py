@@ -47,5 +47,5 @@ import slaterform as sf
     ],
 )
 def test_nuclear_repulsion_energy(mol: sf.Molecule, expected_energy: float):
-    E = jit(sf.structure.nuclear_repulsion_energy_jax)(mol)
+    E = jit(sf.structure.nuclear_repulsion_energy)(mol)
     np.testing.assert_almost_equal(E, expected_energy, decimal=8)

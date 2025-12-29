@@ -1,13 +1,14 @@
 import dataclasses
 from collections.abc import Sequence
-from typing import Any, TypeVar, Hashable
+from typing import Any, TypeAlias, TypeVar, Hashable
 
 import jax
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 import numpy as np
 
-Tree = Any
+# A pytree type.
+Tree: TypeAlias = Any
 
 
 @register_pytree_node_class

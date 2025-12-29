@@ -60,7 +60,7 @@ class MolecularBasis:
         )
 
 
-def build_jax(
+def build(
     molecule: molecule.Molecule, basis_fetcher: BasisFetcher
 ) -> MolecularBasis:
     basis_blocks = []
@@ -75,9 +75,3 @@ def build_jax(
         atoms=molecule.atoms,
         basis_blocks=basis_blocks,
     )
-
-
-def build(
-    molecule: molecule.Molecule, basis_fetcher: BasisFetcher
-) -> MolecularBasis:
-    return build_jax(molecule, basis_fetcher)

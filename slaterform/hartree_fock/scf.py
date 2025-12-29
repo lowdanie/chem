@@ -123,16 +123,16 @@ class Result:
 
 def build_initial_state(basis: bmb.BatchedMolecularBasis) -> State:
     n_basis = basis.basis.n_basis
-    S = one_electron.overlap_matrix_jax(basis)
-    H_core = one_electron.core_hamiltonian_matrix_jax(basis)
-    nuclear_energy = nuclear.repulsion_energy_jax(basis.basis.molecule)
+    S = one_electron.overlap_matrix(basis)
+    H_core = one_electron.core_hamiltonian_matrix(basis)
+    nuclear_energy = nuclear.repulsion_energy(basis.basis.molecule)
 
     return State(
         iteration=jnp.array(0, dtype=jnp.int32),
         context=Context(
             nuclear_energy=nuclear_energy,
             S=S,
-            X=roothaan.orthogonalize_basis_jax(S),
+            X=roothaan.orthogonalize_basis(S),
             H_core=H_core,
         ),
         C=jnp.zeros((n_basis, n_basis), dtype=jnp.float64),
@@ -164,14 +164,14 @@ def scf_step(
 ) -> State:
     # Solve for new orbital coefficients and density.
     # C has shape (n_basis, n_basis)
-    orbital_energies, C = roothaan.solve_jax(state.F, state.context.X)
+    orbital_energies, C = roothaan.solve(state.F, state.context.X)
     # shape (n_basis, n_basis)
-    P = density.closed_shell_matrix_jax(C, basis.basis.n_electrons)
+    P = density.closed_shell_matrix(C, basis.basis.n_electrons)
 
     # Compute the Fock matrix and energy for the new density P.
-    G = fock.two_electron_matrix_jax(basis, P)  # shape (n_basis, n_basis)
+    G = fock.two_electron_matrix(basis, P)  # shape (n_basis, n_basis)
     F = state.context.H_core + G  # shape (n_basis, n_basis)
-    electronic_energy = fock.electronic_energy_jax(state.context.H_core, F, P)
+    electronic_energy = fock.electronic_energy(state.context.H_core, F, P)
 
     return State(
         iteration=state.iteration + 1,

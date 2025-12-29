@@ -1,5 +1,4 @@
 import dataclasses
-from typing import Union
 
 import jax
 import jax.numpy as jnp
@@ -10,11 +9,14 @@ from slaterform import types
 
 
 @register_pytree_node_class
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class GaussianBasis1d:
     max_degree: int
     exponent: types.Array  # shape ()
     center: types.Array  # shape ()
+
+    def __post_init__(self):
+        types.promote_dataclass_fields(self)
 
     def tree_flatten(self):
         children = (self.exponent, self.center)
@@ -36,6 +38,9 @@ class GaussianBasis3d:
     max_degree: int
     exponent: types.Array  # shape ()
     center: types.Array  # shape (3,)
+
+    def __post_init__(self):
+        types.promote_dataclass_fields(self)
 
     def tree_flatten(self):
         children = (self.exponent, self.center)

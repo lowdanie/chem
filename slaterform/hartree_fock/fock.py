@@ -154,7 +154,7 @@ def _process_batched_tuples(
     return new_G
 
 
-def two_electron_matrix_jax(
+def two_electron_matrix(
     basis: bmb.BatchedMolecularBasis,
     P: jax.Array,
 ) -> jax.Array:
@@ -186,14 +186,7 @@ def two_electron_matrix_jax(
     return G
 
 
-def two_electron_matrix(
-    basis: bmb.BatchedMolecularBasis,
-    P: np.ndarray,
-) -> np.ndarray:
-    return np.array(jit(two_electron_matrix_jax)(basis, jnp.array(P)))
-
-
-def electronic_energy_jax(
+def electronic_energy(
     H_core: jax.Array, F: jax.Array, P: jax.Array
 ) -> jax.Array:
     """Compute the electronic expectation energy from the Fock and density
@@ -211,11 +204,3 @@ def electronic_energy_jax(
     """
     # Note that P is symmetric so we can use P_ij = P_ji
     return 0.5 * jnp.sum(P * (H_core + F))
-
-
-def electronic_energy(
-    H_core: np.ndarray, F: np.ndarray, P: np.ndarray
-) -> float:
-    return np.array(
-        electronic_energy_jax(jnp.array(H_core), jnp.array(F), jnp.array(P))
-    ).item()

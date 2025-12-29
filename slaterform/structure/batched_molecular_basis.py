@@ -26,7 +26,7 @@ class BatchedMolecularBasis:
 
     # The starting indices of each basis block in the full basis set.
     # Shape: (n_blocks,)
-    block_starts: types.Array
+    block_starts: jax.Array
 
     # Batches for 1-electron integrals (H_core, S). Tuple length = 2.
     batches_1e: Sequence[batching.BatchedTreeTuples]

@@ -2,7 +2,7 @@ import jax
 from jax import numpy as jnp
 
 
-def orthogonalize_basis_jax(
+def orthogonalize_basis(
     S: jax.Array, linear_dep_threshold: float = 1e-8
 ) -> jax.Array:
     """
@@ -38,7 +38,7 @@ def orthogonalize_basis_jax(
     return U * filtered_inv_sqrt
 
 
-def solve_jax(F: jax.Array, X: jax.Array) -> tuple[jax.Array, jax.Array]:
+def solve(F: jax.Array, X: jax.Array) -> tuple[jax.Array, jax.Array]:
     """
     Solves the Roothaan-Hall equations FC = SCE.
 

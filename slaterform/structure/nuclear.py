@@ -7,7 +7,7 @@ from jax import numpy as jnp
 from slaterform.structure import molecule
 
 
-def repulsion_energy_jax(mol: molecule.Molecule) -> jax.Array:
+def repulsion_energy(mol: molecule.Molecule) -> jax.Array:
     """Computes the nuclear repulsion energy for a given molecule.
 
     Formula:
@@ -32,8 +32,3 @@ def repulsion_energy_jax(mol: molecule.Molecule) -> jax.Array:
     z_j = charges[idx_j]
 
     return jnp.sum((z_i * z_j) / r_ij)
-
-
-def repulsion_energy(mol: molecule.Molecule) -> float:
-    """Computes the nuclear repulsion energy for a given molecule."""
-    return repulsion_energy_jax(mol).item()

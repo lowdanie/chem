@@ -1,5 +1,6 @@
 import pytest
 
+from jax import jit
 from jax import numpy as jnp
 import numpy as np
 
@@ -27,7 +28,7 @@ def test_closed_shell_matrix():
     )
 
     np.testing.assert_allclose(
-        sf.hartree_fock.closed_shell_matrix_jax(C, num_electrons),
+        sf.hartree_fock.closed_shell_matrix(C, num_electrons),
         expected_P,
         rtol=1e-7,
         atol=1e-7,
@@ -46,4 +47,4 @@ def test_closed_shell_matrix_odd_electrons():
     )
 
     with pytest.raises(ValueError):
-        sf.hartree_fock.closed_shell_matrix_jax(C, num_electrons)
+        sf.hartree_fock.closed_shell_matrix(C, num_electrons)

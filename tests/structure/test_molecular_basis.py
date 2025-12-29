@@ -56,7 +56,7 @@ def test_build_molecular_basis():
     expected_num_electrons = 9
 
     mol_basis = jit(
-        sf.structure.build_molecular_basis_jax, static_argnames="basis_fetcher"
+        sf.structure.build_molecular_basis, static_argnames="basis_fetcher"
     )(mol, basis_fetcher=lambda n: gtos[n])
 
     assert mol_basis.n_basis == expected_num_basis

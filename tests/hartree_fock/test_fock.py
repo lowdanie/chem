@@ -142,7 +142,7 @@ def test_two_electron_matrix(
     batched_basis = sf.structure.batch_basis(mol_basis)
     P_jax = jnp.asarray(P)
 
-    G_result = sf.hartree_fock.two_electron_matrix_jax(batched_basis, P_jax)
+    G_result = jit(sf.hartree_fock.two_electron_matrix)(batched_basis, P_jax)
 
     np.testing.assert_allclose(G_result, expected, rtol=1e-7, atol=1e-7)
 
@@ -182,6 +182,6 @@ def test_electronic_energy():
         E_expected += P[i, j] * (H_core[j, i] + F[j, i])
     E_expected *= 0.5
 
-    E_result = jit(sf.hartree_fock.electronic_energy_jax)(H_core, F, P)
+    E_result = jit(sf.hartree_fock.electronic_energy)(H_core, F, P)
 
     np.testing.assert_almost_equal(E_result, E_expected, decimal=10)

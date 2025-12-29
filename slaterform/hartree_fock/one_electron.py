@@ -111,7 +111,7 @@ def _process_batched_tuples(
     return new_matrix
 
 
-def _one_electron_matrix_jax(
+def _one_electron_matrix(
     basis: bmb.BatchedMolecularBasis,
     operator: operators.OneElectronOperator,
 ) -> jax.Array:
@@ -132,34 +132,7 @@ def _one_electron_matrix_jax(
     return matrix
 
 
-# def one_electron_matrix(
-#     mol_basis: molecular_basis.MolecularBasis,
-#     operator: operators.OneElectronOperator,
-# ) -> np.ndarray:
-#     """Computes the one-electron matrix for a given molecular basis.
-
-#     Returns:
-#         A numpy array of shape (N, N) where N=mol_basis.n_basis
-#     """
-#     output = np.empty((mol_basis.n_basis, mol_basis.n_basis), dtype=np.float64)
-
-#     for i, j in itertools.combinations_with_replacement(
-#         range(len(mol_basis.basis_blocks)), 2
-#     ):
-#         block1, slice1 = mol_basis.basis_blocks[i], mol_basis.block_slices[i]
-#         block2, slice2 = mol_basis.basis_blocks[j], mol_basis.block_slices[j]
-
-#         block_matrix = operators.one_electron_matrix(block1, block2, operator)
-
-#         output[slice1, slice2] = block_matrix
-
-#         if i != j:
-#             output[slice2, slice1] = block_matrix.T
-
-#     return output
-
-
-def overlap_matrix_jax(
+def overlap_matrix(
     batched_mol_basis: bmb.BatchedMolecularBasis,
 ) -> jax.Array:
     """Computes the overlap matrix S
@@ -167,36 +140,12 @@ def overlap_matrix_jax(
     Returns:
         A numpy array of shape (N, N) where N=mol_basis.n_basis
     """
-    S = _one_electron_matrix_jax(
+    S = _one_electron_matrix(
         batched_mol_basis,
         overlap.overlap_3d,
     )
 
     return S
-
-
-def overlap_matrix(
-    basis: bmb.BatchedMolecularBasis,
-) -> np.ndarray:
-    return np.array(jit(overlap_matrix_jax)(basis))
-
-
-# def nuclear_attraction_matrix(
-#     mol_basis: molecular_basis.MolecularBasis,
-# ) -> np.ndarray:
-#     """Computes the nuclear attraction matrix V
-
-#     Returns:
-#         A numpy array of shape (N, N) where N=mol_basis.n_basis
-#     """
-#     V = np.zeros((mol_basis.n_basis, mol_basis.n_basis), dtype=np.float64)
-#     for atom in mol_basis.atoms:
-#         V -= atom.number * one_electron_matrix(
-#             mol_basis,
-#             lambda g1, g2: coulomb.one_electron(g1, g2, atom.position),
-#         )
-
-#     return V
 
 
 def _nuclear_operator(
@@ -213,7 +162,7 @@ def _nuclear_operator(
     return jnp.sum(tensors, axis=0)
 
 
-def nuclear_attraction_matrix_jax(
+def nuclear_attraction_matrix(
     basis: bmb.BatchedMolecularBasis,
 ) -> jax.Array:
     """Computes the nuclear attraction matrix V
@@ -225,59 +174,31 @@ def nuclear_attraction_matrix_jax(
     charges = jnp.asarray([atom.number for atom in basis.basis.atoms])
     nuclear_op = functools.partial(_nuclear_operator, positions, charges)
 
-    V = _one_electron_matrix_jax(basis, nuclear_op)
+    V = _one_electron_matrix(basis, nuclear_op)
 
     return V
 
 
-def nuclear_attraction_matrix(
-    basis: bmb.BatchedMolecularBasis,
-) -> np.ndarray:
-    return np.array(jit(nuclear_attraction_matrix_jax)(basis))
-
-
-def kinetic_matrix_jax(
-    basis: bmb.BatchedMolecularBasis,
-) -> jax.Array:
-    """Computes the kinetic energy matrix T
-
-    Returns:
-        A numpy array of shape (N, N) where N=mol_basis.n_basis
-    """
-    return -0.5 * _one_electron_matrix_jax(basis, kinetic.kinetic_3d)
-
-
 def kinetic_matrix(
     basis: bmb.BatchedMolecularBasis,
-) -> np.ndarray:
+) -> jax.Array:
     """Computes the kinetic energy matrix T
 
     Returns:
         A numpy array of shape (N, N) where N=mol_basis.n_basis
     """
-    return np.array(jit(kinetic_matrix_jax)(basis))
-
-
-def core_hamiltonian_matrix_jax(
-    basis: bmb.BatchedMolecularBasis,
-) -> jax.Array:
-    """Computes the core Hamiltonian matrix H = T + V
-
-    Returns:
-        A numpy array of shape (N, N) where N=mol_basis.n_basis
-    """
-    T = kinetic_matrix_jax(basis)
-    V = nuclear_attraction_matrix_jax(basis)
-
-    return T + V
+    return -0.5 * _one_electron_matrix(basis, kinetic.kinetic_3d)
 
 
 def core_hamiltonian_matrix(
     basis: bmb.BatchedMolecularBasis,
-) -> np.ndarray:
+) -> jax.Array:
     """Computes the core Hamiltonian matrix H = T + V
 
     Returns:
         A numpy array of shape (N, N) where N=mol_basis.n_basis
     """
-    return np.array(jit(core_hamiltonian_matrix_jax)(basis))
+    T = kinetic_matrix(basis)
+    V = nuclear_attraction_matrix(basis)
+
+    return T + V

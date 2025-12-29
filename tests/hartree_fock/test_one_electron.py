@@ -77,7 +77,7 @@ def test_overlap_matrix():
     basis = sf.structure.batch_basis(
         _TEST_MOL_BASIS, batch_size_1e=2, batch_size_2e=2
     )
-    S = jit(sf.hartree_fock.overlap_matrix_jax)(basis)
+    S = jit(sf.hartree_fock.overlap_matrix)(basis)
 
     np.testing.assert_allclose(S, expected_S, rtol=1e-7, atol=1e-7)
 
@@ -88,7 +88,7 @@ def test_overlap_matrix_symmetric_pos_def():
     batched_basis = sf.structure.batch_basis(
         mol_basis, batch_size_1e=2, batch_size_2e=2
     )
-    S = jit(sf.hartree_fock.overlap_matrix_jax)(batched_basis)
+    S = jit(sf.hartree_fock.overlap_matrix)(batched_basis)
     np.testing.assert_allclose(S, S.T, rtol=1e-7, atol=1e-7)
 
     # Check positive definiteness
@@ -124,7 +124,7 @@ def test_kinetic_matrix():
     basis = sf.structure.batch_basis(
         _TEST_MOL_BASIS, batch_size_1e=2, batch_size_2e=2
     )
-    T = jit(sf.hartree_fock.kinetic_matrix_jax)(basis)
+    T = jit(sf.hartree_fock.kinetic_matrix)(basis)
     np.testing.assert_allclose(T, expected_T, rtol=1e-7, atol=1e-7)
 
 
@@ -132,9 +132,9 @@ def test_kinetic_matrix_symmetric_pos_def():
     mol = sf.Molecule(atoms=_TEST_ATOMS)
     mol_basis = sf.structure.build_molecular_basis(mol, _basis_fetcher)
     batched_basis = sf.structure.batch_basis(
-        _TEST_MOL_BASIS, batch_size_1e=2, batch_size_2e=2
+        mol_basis, batch_size_1e=2, batch_size_2e=2
     )
-    T = jit(sf.hartree_fock.kinetic_matrix_jax)(batched_basis)
+    T = jit(sf.hartree_fock.kinetic_matrix)(batched_basis)
     np.testing.assert_allclose(T, T.T, rtol=1e-7, atol=1e-7)
 
     # Check positive definiteness
@@ -192,7 +192,7 @@ def test_nuclear_attraction_matrix():
     basis = sf.structure.batch_basis(
         _TEST_MOL_BASIS, batch_size_1e=2, batch_size_2e=2
     )
-    V = jit(sf.hartree_fock.nuclear_attraction_matrix_jax)(basis)
+    V = jit(sf.hartree_fock.nuclear_attraction_matrix)(basis)
     np.testing.assert_allclose(V, expected_V, rtol=1e-7, atol=1e-7)
 
 
@@ -200,9 +200,9 @@ def test_nuclear_attraction_matrix_symmetric_pos_def():
     mol = sf.Molecule(atoms=_TEST_ATOMS)
     mol_basis = sf.structure.build_molecular_basis(mol, _basis_fetcher)
     batched_basis = sf.structure.batch_basis(
-        _TEST_MOL_BASIS, batch_size_1e=2, batch_size_2e=2
+        mol_basis, batch_size_1e=2, batch_size_2e=2
     )
-    V = jit(sf.hartree_fock.nuclear_attraction_matrix_jax)(batched_basis)
+    V = jit(sf.hartree_fock.nuclear_attraction_matrix)(batched_basis)
     np.testing.assert_allclose(V, V.T, rtol=1e-7, atol=1e-7)
 
     # Check negative definiteness

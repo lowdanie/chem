@@ -3,7 +3,6 @@ from typing import Callable
 import functools
 
 import jax
-from jax import jit
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 import numpy as np

@@ -77,7 +77,7 @@ def test_orthogonalize_basis(case):
     n_basis = case.basis.shape[1]
 
     S = case.basis.T @ case.basis  # shape (n_basis, n_basis)
-    X = roothaan.orthogonalize_basis_jax(S)  # shape (n_basis, n_basis)
+    X = roothaan.orthogonalize_basis(S)  # shape (n_basis, n_basis)
     projection = np.diag(
         np.concatenate([np.zeros(n_basis - case.n_ind), np.ones(case.n_ind)])
     )
@@ -156,11 +156,11 @@ def test_orthogonalize_basis(case):
 )
 def test_solve(case):
     S = case.basis.T @ case.basis  # shape (n_basis, n_basis)
-    X = roothaan.orthogonalize_basis_jax(S)  # shape (n_basis, n_basis)
+    X = roothaan.orthogonalize_basis(S)  # shape (n_basis, n_basis)
 
     # orbital_energies: shape (n_basis,)
     # C_new: shape (n_basis, n_basis)
-    orbital_energies, C_new = roothaan.solve_jax(case.F, X)
+    orbital_energies, C_new = roothaan.solve(case.F, X)
 
     # Check that F C = S C E
     F_C = case.F @ C_new
