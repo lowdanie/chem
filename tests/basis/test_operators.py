@@ -582,13 +582,13 @@ def test_two_electron_matrix(case):
     ],
 )
 def test_bse_identity(basis_name, element):
-    gtos = bse.load(basis_name, element)
+    gtos = sf.adapters.bse.load(basis_name, element)
     center = np.array([0.0, 1.0, 2.0])
 
     for gto in gtos:
         block = basis_block.build_basis_block(gto, center)
         num_basis = block.basis_transform.shape[0]
-        S = operators.one_electron_matrix(block, block, overlap.overlap_3d)
+        S = operators.one_electron_matrix(block, block, sf.integrals.overlap_3d)
 
         np.testing.assert_allclose(S, np.eye(num_basis), rtol=1e-7, atol=1e-7)
 
@@ -642,7 +642,7 @@ def test_one_electron_symmetry():
     kernel = jit(
         functools.partial(
             operators.one_electron_matrix,
-            functools.partial(sf.integrals.one_electron, C=C),
+            operator=functools.partial(sf.integrals.one_electron, C=C),
         )
     )
     V = kernel(block, block)

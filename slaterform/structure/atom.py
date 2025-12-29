@@ -15,6 +15,9 @@ class Atom:
     # Position in Bohr units
     position: types.Array
 
+    def __post_init__(self):
+        types.promote_dataclass_fields(self)
+
     def tree_flatten(self):
         children = (self.position,)
         aux_data = (self.symbol, self.number)

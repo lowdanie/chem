@@ -67,7 +67,7 @@ def build_jax(
     for atom in molecule.atoms:
         contracted_gtos = basis_fetcher(atom.number)
         basis_blocks.extend(
-            basis_block.build_basis_block_jax(gto, atom.position)
+            basis_block.build_basis_block(gto, atom.position)
             for gto in contracted_gtos
         )
 

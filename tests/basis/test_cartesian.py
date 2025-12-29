@@ -91,7 +91,7 @@ def test_compute_normalization_constants(case):
     norms = cartesian.compute_normalization_constants(
         case.max_degree,
         case.cartesian_powers,
-        case.exponent,
+        np.array(case.exponent),
     )
 
     np.testing.assert_allclose(norms, case.expected, atol=1e-7)

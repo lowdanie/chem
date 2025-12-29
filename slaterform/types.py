@@ -17,6 +17,10 @@ def promote_dataclass_fields(obj):
     for field in dataclasses.fields(obj):
         value = getattr(obj, field.name)
 
+        # Skip jax sentinels.
+        if type(value) is object:
+            continue
+
         if field.type == Array:
             setattr(obj, field.name, jnp.asarray(value))
         elif field.type == StaticArray:

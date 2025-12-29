@@ -118,7 +118,7 @@ def _one_electron_matrix_jax(
     n_basis = basis.basis.n_basis
     matrix = jnp.zeros((n_basis, n_basis), dtype=jnp.float64)
     batch_operator = jax.vmap(
-        lambda b1, b2: operators.one_electron_matrix_jax(b1, b2, operator)
+        lambda b1, b2: operators.one_electron_matrix(b1, b2, operator)
     )
 
     for batched_tuples in basis.batches_1e:

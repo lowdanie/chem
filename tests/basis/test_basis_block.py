@@ -74,7 +74,7 @@ class _BuildBasisBlockTestCase:
     ],
 )
 def test_build_basis_block(case):
-    result = jit(sf.basis.build_basis_block_jax)(case.gto, case.center)
+    result = jit(sf.basis.build_basis_block)(case.gto, case.center)
     assert result.n_basis == case.expected.n_basis
     assert result.n_cart == case.expected.n_cart
 
@@ -114,7 +114,7 @@ def test_build_basis_block_unsupported_primitive():
     center = np.array([0.0, 0.0, 0.0], dtype=np.float64)
 
     with pytest.raises(NotImplementedError):
-        sf.basis.build_basis_block_jax(gto, center)
+        sf.basis.build_basis_block(gto, center)
 
 
 def test_n_basis():

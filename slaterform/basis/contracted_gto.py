@@ -56,6 +56,9 @@ class ContractedGTO:
     # shape (N_shell, K)
     coefficients: types.Array
 
+    def __post_init__(self):
+        types.promote_dataclass_fields(self)
+
     def tree_flatten(self):
         children = (self.exponents, self.coefficients)
         aux_data = (self.primitive_type, self.angular_momentum)
