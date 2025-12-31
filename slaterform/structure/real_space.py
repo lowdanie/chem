@@ -2,12 +2,12 @@ import numpy as np
 import numpy.typing as npt
 
 from slaterform.basis import real_space as basis_real_space
-from slaterform.structure import molecular_basis
+from slaterform.structure import batched_basis
 
 
 def evaluate(
-    mol_basis: molecular_basis.MolecularBasis, points: npt.NDArray[np.float64]
-) -> npt.NDArray[np.float64]:
+    basis: batched_basis.BatchedBasis, points: np.ndarray
+) -> np.ndarray:
     """Evaluate the basis functions at specified points.
 
     Args:
@@ -18,9 +18,9 @@ def evaluate(
         The evaluated basis functions at each point, shape
         (..., mol.n_basis).
     """
-    block_evals: list[npt.NDArray[np.float64]] = []
+    block_evals = []
 
-    for block in mol_basis.basis_blocks:
+    for block in basis.basis_blocks:
         block_eval = basis_real_space.evaluate(block, points)
         block_evals.append(block_eval)
 

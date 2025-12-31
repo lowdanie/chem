@@ -6,12 +6,7 @@ from jax import numpy as jnp
 import numpy as np
 
 import slaterform as sf
-from slaterform.adapters import bse
-from slaterform.basis import contracted_gto
-from slaterform.structure import atom
-from slaterform.structure import molecule
-from slaterform.structure import molecular_basis
-from slaterform.hartree_fock import scf
+from tests.jax_utils import pytree_utils
 
 _H2_MOLECULE = sf.Molecule(
     atoms=[
@@ -19,11 +14,13 @@ _H2_MOLECULE = sf.Molecule(
             symbol="H",
             number=1,
             position=np.array([0.0, 0.0, 0.0], dtype=np.float64),
+            shells=sf.adapters.bse.load("sto-3g", 1),
         ),
         sf.Atom(
             symbol="H",
             number=1,
             position=np.array([0.0, 0.0, 1.4], dtype=np.float64),
+            shells=sf.adapters.bse.load("sto-3g", 1),
         ),
     ]
 )
@@ -40,6 +37,7 @@ _H20_MOLECULE = sf.Molecule(
             symbol="O",
             number=8,
             position=np.array([0.0, 0.0, 0.0], dtype=np.float64),
+            shells=sf.adapters.bse.load("sto-3g", 8),
         ),
         sf.Atom(
             symbol="H",
@@ -47,6 +45,7 @@ _H20_MOLECULE = sf.Molecule(
             position=np.array(
                 [0.52421003, 1.68733646, 0.48074633], dtype=np.float64
             ),
+            shells=sf.adapters.bse.load("sto-3g", 1),
         ),
         sf.Atom(
             symbol="H",
@@ -54,6 +53,7 @@ _H20_MOLECULE = sf.Molecule(
             position=np.array(
                 [1.14668581, -0.45032174, -1.35474466], dtype=np.float64
             ),
+            shells=sf.adapters.bse.load("sto-3g", 1),
         ),
     ]
 )
@@ -85,14 +85,93 @@ _EXPECTED_ELECTRONIC_ENERGY_H2O = -84.04881208  # Hartree
 _EXPECTED_TOTAL_ENERGY_H20 = -74.96444758  # Hartree
 
 
-def _basis_fetcher(n: int) -> list[sf.ContractedGTO]:
-    return bse.load("sto-3g", n)
+def test_options_pytree():
+    options = sf.hartree_fock.scf.Options(
+        max_iterations=50,
+        convergence_threshold=1e-6,
+        callback_interval=5,
+        callback=lambda state: print("test"),
+    )
+
+    pytree_utils.assert_valid_pytree(options)
+
+
+def test_options_zero_callback_intervals():
+    with pytest.raises(ValueError):
+        sf.hartree_fock.scf.Options(callback_interval=0)
+
+
+def test_context_pytree():
+    context = sf.hartree_fock.scf.Context(
+        basis=sf.BatchedBasis.from_molecule(_H2_MOLECULE),
+        nuclear_energy=jnp.asarray(1.0),
+        S=jnp.ones((2, 2)),
+        X=2 * jnp.ones((2, 2)),
+        H_core=3 * jnp.ones((2, 2)),
+    )
+
+    pytree_utils.assert_valid_pytree(context)
+
+
+def test_state_pytree():
+    basis = sf.BatchedBasis.from_molecule(_H2_MOLECULE)
+    context = sf.hartree_fock.scf.Context(
+        basis=basis,
+        nuclear_energy=jnp.asarray(1.0),
+        S=jnp.ones((2, 2)),
+        X=2 * jnp.ones((2, 2)),
+        H_core=3 * jnp.ones((2, 2)),
+    )
+    state = sf.hartree_fock.scf.State(
+        iteration=jnp.array(0, dtype=jnp.int32),
+        context=context,
+        C=4 * jnp.ones((2, 2)),
+        P=5 * jnp.ones((2, 2)),
+        F=6 * jnp.ones((2, 2)),
+        electronic_energy=7 * jnp.asarray(1.0),
+        total_energy=8 * jnp.asarray(1.0),
+        orbital_energies=9 * jnp.ones((2,)),
+        delta_P=10 * jnp.asarray(1.0),
+    )
+
+    pytree_utils.assert_valid_pytree(state)
+
+
+def test_result_pytree():
+    basis = sf.BatchedBasis.from_molecule(_H2_MOLECULE)
+    result = sf.hartree_fock.scf.Result(
+        converged=jnp.asarray(True),
+        iterations=jnp.array(10, dtype=jnp.int32),
+        electronic_energy=jnp.asarray(-1.0),
+        nuclear_energy=jnp.asarray(1.0),
+        total_energy=jnp.asarray(0.0),
+        basis=basis,
+        orbital_energies=jnp.ones((2,)),
+        orbitals=jnp.ones((2, 2)),
+        density=jnp.ones((2, 2)),
+    )
+
+    pytree_utils.assert_valid_pytree(result)
 
 
 def test_H2():
-    mol_basis = sf.structure.build_molecular_basis(_H2_MOLECULE, _basis_fetcher)
-    batched_basis = sf.structure.batch_basis(mol_basis)
-    result = scf.solve(batched_basis)
+    basis = sf.BatchedBasis.from_molecule(_H2_MOLECULE)
+    result = jit(sf.hartree_fock.scf.solve)(basis)
+
+    np.testing.assert_almost_equal(
+        result.electronic_energy,
+        _EXPECTED_ELECTRONIC_ENERGY_H2,
+        decimal=4,
+    )
+    np.testing.assert_almost_equal(
+        result.total_energy,
+        _EXPECTED_TOTAL_ENERGY_H2,
+        decimal=4,
+    )
+
+
+def test_H2_from_molecule():
+    result = jit(sf.hartree_fock.scf.solve)(_H2_MOLECULE)
 
     np.testing.assert_almost_equal(
         result.electronic_energy,
@@ -108,17 +187,14 @@ def test_H2():
 
 @pytest.mark.slow
 def test_H2O():
-    mol_basis = sf.structure.build_molecular_basis(
-        _H20_MOLECULE, _basis_fetcher
-    )
-    batched_basis = sf.structure.batch_basis(mol_basis)
-
-    options = scf.Options(
+    basis = sf.BatchedBasis.from_molecule(_H20_MOLECULE)
+    options = sf.hartree_fock.scf.Options(
+        callback_interval=5,
         callback=lambda state: print(
             f"Iteration {state.iteration}: E = {state.electronic_energy:.8f} Ha"
         ),
     )
-    result = scf.solve(batched_basis, options=options)
+    result = jit(sf.hartree_fock.scf.solve)(basis, options=options)
 
     np.testing.assert_almost_equal(
         result.electronic_energy,

@@ -11,6 +11,9 @@ Array: TypeAlias = np.ndarray | jax.Array
 # Static metadata
 StaticArray: TypeAlias = np.ndarray
 
+IntScalar: TypeAlias = int | jax.Array
+Scalar: TypeAlias = float | jax.Array
+
 
 def promote_dataclass_fields(obj):
     """Converts all Array/StaticArray fields to jax/numpy arrays."""
@@ -21,7 +24,7 @@ def promote_dataclass_fields(obj):
         if type(value) is object:
             continue
 
-        if field.type == Array:
+        if field.type in (Array, IntScalar, Scalar):
             setattr(obj, field.name, jnp.asarray(value))
         elif field.type == StaticArray:
             setattr(obj, field.name, np.asarray(value))

@@ -1,17 +1,18 @@
 import dataclasses
 import pytest
 
+from jax import numpy as jnp
 import numpy as np
 import numpy.typing as npt
 
 from slaterform.basis import basis_block
-from slaterform.structure import molecular_basis
+from slaterform.structure import batched_basis
 from slaterform.structure import real_space
 
 
 @dataclasses.dataclass
 class _EvaluateTestCase:
-    mol_basis: molecular_basis.MolecularBasis
+    basis: batched_basis.BatchedBasis
     points: npt.NDArray[np.float64]  # shape (..., 3)
     expected: npt.NDArray[np.float64]  # shape (..., n_basis)
 
@@ -22,7 +23,7 @@ class _EvaluateTestCase:
     "case",
     [
         _EvaluateTestCase(
-            mol_basis=molecular_basis.MolecularBasis(
+            basis=batched_basis.BatchedBasis(
                 atoms=[],
                 basis_blocks=[
                     basis_block.BasisBlock(
@@ -58,6 +59,9 @@ class _EvaluateTestCase:
                         basis_transform=np.eye(2),
                     ),
                 ],
+                block_starts=jnp.array([0, 1]),
+                batches_1e=[],
+                batches_2e=[],
             ),
             points=np.array(
                 [
@@ -87,5 +91,5 @@ class _EvaluateTestCase:
     ],
 )
 def test_evaluate(case: _EvaluateTestCase):
-    actual = real_space.evaluate(case.mol_basis, case.points)
+    actual = real_space.evaluate(case.basis, case.points)
     np.testing.assert_allclose(actual, case.expected, rtol=1e-7, atol=1e-7)

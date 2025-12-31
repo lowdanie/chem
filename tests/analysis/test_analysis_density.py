@@ -4,19 +4,15 @@ import pytest
 import numpy as np
 import numpy.typing as npt
 
-from slaterform.analysis import density
-from slaterform.analysis import grid as analysis_grid
-from slaterform.basis import basis_block
-from slaterform.structure import atom
-from slaterform.structure import molecular_basis
+import slaterform as sf
 
 
 @dataclasses.dataclass
 class _EvaluateDensityTestCase:
-    mol_basis: molecular_basis.MolecularBasis
-    P: npt.NDArray[np.float64]  # shape: (n_basis, n_basis)
-    grid: analysis_grid.RegularGrid
-    expected_density: npt.NDArray[np.float64]  # shape: grid.dims
+    basis: sf.BatchedBasis
+    P: np.ndarray  # shape: (n_basis, n_basis)
+    grid: sf.RegularGrid
+    expected_density: np.ndarray  # shape: grid.dims
 
 
 # The basis functions were evaluated using the same method as in
@@ -30,10 +26,10 @@ class _EvaluateDensityTestCase:
     "case",
     [
         _EvaluateDensityTestCase(
-            mol_basis=molecular_basis.MolecularBasis(
+            basis=sf.BatchedBasis(
                 atoms=[],
                 basis_blocks=[
-                    basis_block.BasisBlock(
+                    sf.BasisBlock(
                         center=np.array([0.0, -1.0, 1.0]),
                         exponents=np.array([0.4, 0.5, 0.6]),
                         cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
@@ -46,9 +42,12 @@ class _EvaluateDensityTestCase:
                         basis_transform=np.eye(2),
                     ),
                 ],
+                block_starts=np.array([0]),
+                batches_1e=[],
+                batches_2e=[],
             ),
             P=np.array([[1.0, 2.0], [3.0, 4.0]]),
-            grid=analysis_grid.RegularGrid(
+            grid=sf.RegularGrid(
                 origin=np.array([-1.0, -1.0, 1.0]),
                 spacing=1.0,
                 dims=(2, 2, 2),
@@ -65,5 +64,5 @@ class _EvaluateDensityTestCase:
 def test_evaluate_density(
     case: _EvaluateDensityTestCase,
 ) -> None:
-    density_values = density.evaluate(case.mol_basis, case.P, case.grid)
+    density_values = sf.analysis.evaluate_density(case.basis, case.P, case.grid)
     np.testing.assert_allclose(density_values, case.expected_density)

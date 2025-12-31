@@ -12,7 +12,7 @@ from slaterform.integrals import gaussian
 from slaterform.integrals import overlap
 from slaterform.integrals import kinetic
 from slaterform.integrals import coulomb
-from slaterform.structure import batched_molecular_basis as bmb
+from slaterform.structure import batched_basis
 from slaterform.basis import basis_block
 from slaterform.basis import operators
 from slaterform.jax_utils import batching
@@ -112,10 +112,10 @@ def _process_batched_tuples(
 
 
 def _one_electron_matrix(
-    basis: bmb.BatchedMolecularBasis,
+    basis: batched_basis.BatchedBasis,
     operator: operators.OneElectronOperator,
 ) -> jax.Array:
-    n_basis = basis.basis.n_basis
+    n_basis = basis.n_basis
     matrix = jnp.zeros((n_basis, n_basis), dtype=jnp.float64)
     batch_operator = jax.vmap(
         lambda b1, b2: operators.one_electron_matrix(b1, b2, operator)
@@ -133,7 +133,7 @@ def _one_electron_matrix(
 
 
 def overlap_matrix(
-    batched_mol_basis: bmb.BatchedMolecularBasis,
+    batched_mol_basis: batched_basis.BatchedBasis,
 ) -> jax.Array:
     """Computes the overlap matrix S
 
@@ -163,15 +163,15 @@ def _nuclear_operator(
 
 
 def nuclear_attraction_matrix(
-    basis: bmb.BatchedMolecularBasis,
+    basis: batched_basis.BatchedBasis,
 ) -> jax.Array:
     """Computes the nuclear attraction matrix V
 
     Returns:
         A numpy array of shape (N, N) where N=mol_basis.n_basis
     """
-    positions = jnp.asarray([atom.position for atom in basis.basis.atoms])
-    charges = jnp.asarray([atom.number for atom in basis.basis.atoms])
+    positions = jnp.asarray([atom.position for atom in basis.atoms])
+    charges = jnp.asarray([atom.number for atom in basis.atoms])
     nuclear_op = functools.partial(_nuclear_operator, positions, charges)
 
     V = _one_electron_matrix(basis, nuclear_op)
@@ -180,7 +180,7 @@ def nuclear_attraction_matrix(
 
 
 def kinetic_matrix(
-    basis: bmb.BatchedMolecularBasis,
+    basis: batched_basis.BatchedBasis,
 ) -> jax.Array:
     """Computes the kinetic energy matrix T
 
@@ -191,7 +191,7 @@ def kinetic_matrix(
 
 
 def core_hamiltonian_matrix(
-    basis: bmb.BatchedMolecularBasis,
+    basis: batched_basis.BatchedBasis,
 ) -> jax.Array:
     """Computes the core Hamiltonian matrix H = T + V
 

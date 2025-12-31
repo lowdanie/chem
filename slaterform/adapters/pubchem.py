@@ -1,7 +1,7 @@
+from collections.abc import Sequence
 import numpy as np
 import pubchempy as pcp
 
-from slaterform.structure import molecule
 from slaterform.structure import atom
 from slaterform.structure import units
 
@@ -16,12 +16,12 @@ def _load_atom(atom_data: pcp.Atom) -> atom.Atom:
         symbol=atom_data.element,
         number=atom_data.number,
         position=position,
+        shells=[],
     )
 
 
-def load_molecule(compound: pcp.Compound) -> molecule.Molecule:
+def load_geometry(compound: pcp.Compound) -> Sequence[atom.Atom]:
     if compound.coordinate_type != "3d":
         raise ValueError("Compound must have 3D coordinates.")
 
-    atoms = [_load_atom(atom_data) for atom_data in compound.atoms]
-    return molecule.Molecule(atoms=atoms)
+    return [_load_atom(atom_data) for atom_data in compound.atoms]

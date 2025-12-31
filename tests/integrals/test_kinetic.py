@@ -220,7 +220,4 @@ def test_kinetic_3d(case):
 
     for coords, expected in case.expected_values:
         actual = T[coords]
-        print(coords)
-        print(actual)
-        print(expected)
         np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)

@@ -5,9 +5,7 @@ from unittest import mock
 
 import numpy as np
 
-from slaterform.structure import atom
-from slaterform.structure import molecule
-from slaterform.adapters import pubchem
+import slaterform as sf
 from slaterform.structure import units
 
 
@@ -21,13 +19,13 @@ class _AtomData:
 
 
 @dataclasses.dataclass
-class _LoadMoleculeTestCase:
+class _LoadGeometryTestCase:
     coordinate_type: str
     atom_data: list[_AtomData]
-    expected_molecule: molecule.Molecule
+    expected_geometry: list[sf.Atom]
 
 
-def _assert_atoms_equal(atom1: atom.Atom, atom2: atom.Atom):
+def _assert_atoms_equal(atom1: sf.Atom, atom2: sf.Atom):
     assert atom1.symbol == atom2.symbol
     assert atom1.number == atom2.number
     np.testing.assert_array_almost_equal(atom1.position, atom2.position)
@@ -36,39 +34,34 @@ def _assert_atoms_equal(atom1: atom.Atom, atom2: atom.Atom):
 @pytest.mark.parametrize(
     "case",
     [
-        _LoadMoleculeTestCase(
+        _LoadGeometryTestCase(
             coordinate_type="3d",
             atom_data=[
                 _AtomData(element="H", number=1, x=0.1, y=0.0, z=0.0),
                 _AtomData(element="O", number=8, x=0.0, y=0.2, z=0.0),
                 _AtomData(element="H", number=1, x=0.0, y=0.0, z=0.3),
             ],
-            expected_molecule=molecule.Molecule(
-                atoms=[
-                    atom.Atom(
-                        symbol="H",
-                        number=1,
-                        position=np.array([0.1, 0.0, 0.0])
-                        * units.ANGSTROM_TO_BOHR,
-                    ),
-                    atom.Atom(
-                        symbol="O",
-                        number=8,
-                        position=np.array([0.0, 0.2, 0.0])
-                        * units.ANGSTROM_TO_BOHR,
-                    ),
-                    atom.Atom(
-                        symbol="H",
-                        number=1,
-                        position=np.array([0.0, 0.0, 0.3])
-                        * units.ANGSTROM_TO_BOHR,
-                    ),
-                ]
-            ),
+            expected_geometry=[
+                sf.Atom(
+                    symbol="H",
+                    number=1,
+                    position=np.array([0.1, 0.0, 0.0]) * units.ANGSTROM_TO_BOHR,
+                ),
+                sf.Atom(
+                    symbol="O",
+                    number=8,
+                    position=np.array([0.0, 0.2, 0.0]) * units.ANGSTROM_TO_BOHR,
+                ),
+                sf.Atom(
+                    symbol="H",
+                    number=1,
+                    position=np.array([0.0, 0.0, 0.3]) * units.ANGSTROM_TO_BOHR,
+                ),
+            ],
         ),
     ],
 )
-def test_load_molecule(case):
+def test_load_geometry(case):
     mock_compound = mock.MagicMock()
     mock_compound.coordinate_type = case.coordinate_type
     mock_compound.atoms = [
@@ -82,17 +75,15 @@ def test_load_molecule(case):
         for atom_data in case.atom_data
     ]
 
-    loaded_molecule = pubchem.load_molecule(mock_compound)
-    assert len(loaded_molecule.atoms) == len(case.expected_molecule.atoms)
-    for loaded_atom, expected_atom in zip(
-        loaded_molecule.atoms, case.expected_molecule.atoms
-    ):
+    atoms = sf.adapters.pubchem.load_geometry(mock_compound)
+    assert len(atoms) == len(case.expected_geometry)
+    for loaded_atom, expected_atom in zip(atoms, case.expected_geometry):
         _assert_atoms_equal(loaded_atom, expected_atom)
 
 
-def test_load_molecule_invalid_coordinate_type():
+def test_load_geometry_invalid_coordinate_type():
     mock_compound = mock.MagicMock()
     mock_compound.coordinate_type = "2d"  # Invalid coordinate type
 
     with pytest.raises(ValueError, match="Compound must have 3D coordinates."):
-        pubchem.load_molecule(mock_compound)
+        sf.adapters.pubchem.load_geometry(mock_compound)

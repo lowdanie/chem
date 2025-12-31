@@ -1,6 +1,4 @@
 import jax
-from jax import numpy as jnp
-import numpy as np
 
 
 def closed_shell_matrix(C: jax.Array, num_electrons: int) -> jax.Array:

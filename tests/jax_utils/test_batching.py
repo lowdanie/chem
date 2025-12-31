@@ -457,7 +457,8 @@ def test_batch_tree_tuples_preserves_tuples(
     # Check that the batched tree tuples reconstruct the original tuples.
     reconstructed_tuples = []
     for bt in batched_tree_tuples:
-        reconstructed_tuples.extend(block_utils.get_global_tuple_indices(bt))
+        for global_batch in block_utils.get_global_tuple_batches(bt):
+            reconstructed_tuples.extend(global_batch)
 
     assert Counter(reconstructed_tuples) == Counter(case.tuple_indices)
 

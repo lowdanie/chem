@@ -13,8 +13,7 @@ from slaterform.jax_utils import gather
 from slaterform.jax_utils import scatter
 from slaterform.integrals import coulomb
 from slaterform.symmetry import quartet as quartet_lib
-from slaterform.structure import molecular_basis
-from slaterform.structure import batched_molecular_basis as bmb
+from slaterform.structure import batched_basis
 
 _BlockOperator = Callable[
     [
@@ -155,7 +154,7 @@ def _process_batched_tuples(
 
 
 def two_electron_matrix(
-    basis: bmb.BatchedMolecularBasis,
+    basis: batched_basis.BatchedBasis,
     P: jax.Array,
 ) -> jax.Array:
     """Compute the two-electron contribution to the Fock matrix.
@@ -166,7 +165,7 @@ def two_electron_matrix(
     Returns:
         The two-electron Fock matrix. Shape: (n_basis, n_basis).
     """
-    n_basis = basis.basis.n_basis
+    n_basis = basis.n_basis
     G = jnp.zeros((n_basis, n_basis), dtype=jnp.float64)
     batch_operator = jax.vmap(
         functools.partial(

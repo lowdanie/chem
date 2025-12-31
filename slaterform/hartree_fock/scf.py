@@ -1,8 +1,8 @@
 import dataclasses
 from typing import Callable, Optional
+import functools
 
 import jax
-from jax import jit
 from jax import numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
@@ -11,23 +11,53 @@ from slaterform.hartree_fock import density
 from slaterform.hartree_fock import fock
 from slaterform.hartree_fock import one_electron
 from slaterform.hartree_fock import roothaan
-from slaterform.structure import batched_molecular_basis as bmb
+from slaterform.structure import batched_basis
+from slaterform.structure import molecule as molecule_lib
 from slaterform.structure import nuclear
 from slaterform import types
 
 SolverCallback = Callable[["State"], None]
 
 
+@register_pytree_node_class
 @dataclasses.dataclass
 class Options:
-    max_iterations: int = 50
-    convergence_threshold: float = 1e-6
+    max_iterations: types.IntScalar = 50
+    convergence_threshold: types.Scalar = 1e-6
+    callback_interval: types.IntScalar = 10
     callback: Optional[SolverCallback] = None
+
+    def __post_init__(self):
+        if isinstance(self.callback_interval, (int, float)):
+            if self.callback_interval < 1:
+                raise ValueError("callback_interval must be >= 1")
+
+        types.promote_dataclass_fields(self)
+
+    def tree_flatten(self):
+        children = (
+            self.max_iterations,
+            self.convergence_threshold,
+            self.callback_interval,
+        )
+        aux_data = (self.callback,)
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(
+            max_iterations=children[0],
+            convergence_threshold=children[1],
+            callback_interval=children[2],
+            callback=aux_data[0],
+        )
 
 
 @register_pytree_node_class
 @dataclasses.dataclass
 class Context:
+    basis: batched_basis.BatchedBasis
+
     nuclear_energy: jax.Array
 
     # Overlap matrix. shape (n_basis, n_basis)
@@ -41,6 +71,7 @@ class Context:
 
     def tree_flatten(self):
         children = (
+            self.basis,
             self.nuclear_energy,
             self.S,
             self.X,
@@ -98,14 +129,18 @@ class State:
         return cls(*children)
 
 
+@register_pytree_node_class
 @dataclasses.dataclass
 class Result:
-    converged: bool
-    iterations: int
+    converged: jax.Array
+    iterations: jax.Array
 
     electronic_energy: jax.Array
     nuclear_energy: jax.Array
     total_energy: jax.Array
+
+    # The basis used in the calculation.
+    basis: batched_basis.BatchedBasis
 
     # Fock matrix eigenvalues.
     # shape (n_basis, )
@@ -119,16 +154,36 @@ class Result:
     # shape (n_basis, n_basis)
     density: jax.Array
 
+    def tree_flatten(self):
+        children = (
+            self.converged,
+            self.iterations,
+            self.electronic_energy,
+            self.nuclear_energy,
+            self.total_energy,
+            self.basis,
+            self.orbital_energies,
+            self.orbitals,
+            self.density,
+        )
+        aux_data = None
+        return children, aux_data
 
-def build_initial_state(basis: bmb.BatchedMolecularBasis) -> State:
-    n_basis = basis.basis.n_basis
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(*children)
+
+
+def build_initial_state(basis: batched_basis.BatchedBasis) -> State:
+    n_basis = basis.n_basis
     S = one_electron.overlap_matrix(basis)
     H_core = one_electron.core_hamiltonian_matrix(basis)
-    nuclear_energy = nuclear.repulsion_energy(basis.basis.molecule)
+    nuclear_energy = nuclear.repulsion_energy(basis.atoms)
 
     return State(
         iteration=jnp.array(0, dtype=jnp.int32),
         context=Context(
+            basis=basis,
             nuclear_energy=nuclear_energy,
             S=S,
             X=roothaan.orthogonalize_basis(S),
@@ -144,31 +199,30 @@ def build_initial_state(basis: bmb.BatchedMolecularBasis) -> State:
     )
 
 
-def build_result(state: State, converged: bool) -> Result:
+def build_result(state: State, options: Options) -> Result:
     return Result(
-        converged=converged,
-        iterations=state.iteration.item(),
+        converged=state.delta_P <= options.convergence_threshold,
+        iterations=state.iteration,
         electronic_energy=state.electronic_energy,
         nuclear_energy=state.context.nuclear_energy,
         total_energy=state.total_energy,
+        basis=state.context.basis,
         orbital_energies=state.orbital_energies,
         orbitals=state.C,
         density=state.P,
     )
 
 
-def scf_step(
-    state: State,
-    basis: bmb.BatchedMolecularBasis,
-) -> State:
+def scf_step(state: State) -> State:
     # Solve for new orbital coefficients and density.
     # C has shape (n_basis, n_basis)
     orbital_energies, C = roothaan.solve(state.F, state.context.X)
     # shape (n_basis, n_basis)
-    P = density.closed_shell_matrix(C, basis.basis.n_electrons)
+    P = density.closed_shell_matrix(C, state.context.basis.n_electrons)
 
     # Compute the Fock matrix and energy for the new density P.
-    G = fock.two_electron_matrix(basis, P)  # shape (n_basis, n_basis)
+    # shape (n_basis, n_basis)
+    G = fock.two_electron_matrix(state.context.basis, P)
     F = state.context.H_core + G  # shape (n_basis, n_basis)
     electronic_energy = fock.electronic_energy(state.context.H_core, F, P)
 
@@ -185,8 +239,50 @@ def scf_step(
     )
 
 
+def _build_basis(
+    system: batched_basis.BatchedBasis | molecule_lib.Molecule,
+) -> batched_basis.BatchedBasis:
+    if isinstance(system, batched_basis.BatchedBasis):
+        return system
+    elif isinstance(system, molecule_lib.Molecule):
+        return batched_basis.BatchedBasis.from_molecule(system)
+    else:
+        raise TypeError(
+            f"Expected input of type BatchedBasis or Molecule, got {type(system)}"
+        )
+
+
+def _should_continue(state: State, options: Options) -> jax.Array:
+    return jnp.logical_and(
+        state.delta_P > options.convergence_threshold,
+        state.iteration < options.max_iterations,
+    )
+
+
+def _maybe_run_callback(state: State, options: Options) -> None:
+    if options.callback is None:
+        return
+
+    should_run = state.iteration % options.callback_interval == 0
+
+    def run_callback():
+        jax.debug.callback(options.callback, state)
+
+    def noop_callback():
+        return None
+
+    jax.lax.cond(should_run, run_callback, noop_callback)
+
+
+def _perform_step(state: State, options: Options) -> State:
+    state = scf_step(state)
+    _maybe_run_callback(state, options)
+
+    return state
+
+
 def solve(
-    basis: bmb.BatchedMolecularBasis,
+    system: batched_basis.BatchedBasis | molecule_lib.Molecule,
     options: Options = Options(),
 ) -> Result:
     """Performs the self-consistent field (SCF) procedure to compute the
@@ -195,20 +291,11 @@ def solve(
     Returns:
         A Result object containing the final energy and orbital coefficients.
     """
+    basis = _build_basis(system)
     state = build_initial_state(basis)
-    converged = False
 
-    step_fn = jit(scf_step)
+    cond_fn = functools.partial(_should_continue, options=options)
+    step_fn = functools.partial(_perform_step, options=options)
+    state = jax.lax.while_loop(cond_fn, step_fn, state)
 
-    for _ in range(options.max_iterations):
-        state = step_fn(state, basis)
-
-        if options.callback is not None:
-            options.callback(state)
-
-        # Check for convergence.
-        if state.delta_P.item() < options.convergence_threshold:
-            converged = True
-            break
-
-    return build_result(state, converged)
+    return build_result(state, options)

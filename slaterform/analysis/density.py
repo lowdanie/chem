@@ -1,16 +1,15 @@
 import numpy as np
-import numpy.typing as npt
 
 from slaterform.analysis import grid as grid_lib
-from slaterform.structure import molecular_basis
+from slaterform.structure import batched_basis
 from slaterform.structure import real_space
 
 
 def evaluate(
-    mol_basis: molecular_basis.MolecularBasis,
-    P: npt.NDArray[np.float64],
+    basis: batched_basis.BatchedBasis,
+    P: np.ndarray,
     grid: grid_lib.RegularGrid,
-) -> npt.NDArray[np.float64]:
+) -> np.ndarray:
     """Evaluate the electron density at given grid points.
 
     Args:
@@ -26,7 +25,7 @@ def evaluate(
 
     # Evaluate the basis functions phi at the specified points.
     # shape (..., n_basis)
-    phi = real_space.evaluate(mol_basis, points)
+    phi = real_space.evaluate(basis, points)
 
     # Compute the density using the formula:
     # rho(r) = phi(r) @ P @ phi(r).T

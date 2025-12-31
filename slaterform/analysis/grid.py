@@ -10,12 +10,12 @@ from slaterform.structure import molecule
 class RegularGrid:
     """Represents a regularly spaced 3D grid for volumetric data."""
 
-    origin: npt.NDArray[np.float64]  # Shape (3,)
+    origin: np.ndarray  # Shape (3,)
     dims: tuple[int, int, int]  # (nx, ny, nz)
     spacing: float  # Bohr (assuming cubic voxels)
 
 
-def generate_points(grid: RegularGrid) -> npt.NDArray[np.float64]:
+def generate_points(grid: RegularGrid) -> np.ndarray:
     """Generate the 3D points of the regular grid.
 
     Args:

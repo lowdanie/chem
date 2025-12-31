@@ -123,9 +123,6 @@ def test_generates_all_quartets(n):
             sigma_quartet = quartet_lib.apply_permutation(sigma, quartet)
             quartet_counts[sigma_quartet] += inv_stabilizer_norm
 
-    for quartet, count in quartet_counts.items():
-        print(f"{quartet}: {count}")
-
     expected_n_quartets = n**4
     assert len(quartet_counts) == expected_n_quartets
     assert len(set(quartet_counts)) == expected_n_quartets

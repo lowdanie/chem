@@ -1,9 +1,11 @@
 import dataclasses
+from collections.abc import Sequence
 
 import jax
 from jax.tree_util import register_pytree_node_class
 
 from slaterform import types
+from slaterform.basis import contracted_gto
 
 
 @register_pytree_node_class
@@ -15,20 +17,28 @@ class Atom:
     # Position in Bohr units
     position: types.Array
 
+    # The basis functions centered on this atom.
+    shells: Sequence[contracted_gto.ContractedGTO] = dataclasses.field(
+        default_factory=list
+    )
+
     def __post_init__(self):
         types.promote_dataclass_fields(self)
 
     def tree_flatten(self):
-        children = (self.position,)
+        children = (self.position, self.shells)
         aux_data = (self.symbol, self.number)
         return (children, aux_data)
 
     @classmethod
     def tree_unflatten(
-        cls, aux_data: tuple[str, int], children: tuple[jax.Array, ...]
+        cls,
+        aux_data: tuple[str, int],
+        children: tuple[jax.Array, Sequence[contracted_gto.ContractedGTO]],
     ) -> "Atom":
         return cls(
             symbol=aux_data[0],
             number=aux_data[1],
             position=children[0],
+            shells=children[1],
         )
