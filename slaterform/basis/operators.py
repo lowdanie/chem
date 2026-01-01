@@ -1,14 +1,11 @@
-import dataclasses
-import itertools
 from typing import Callable, NamedTuple
 import functools
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 
 from slaterform.basis.basis_block import BasisBlock
-from slaterform.jax_utils import broadcasting
+from slaterform.jax_utils.broadcasting import broadcast_indices, flat_product
 from slaterform.integrals.gaussian import GaussianBasis3d
 
 # A one-electron operator between two BasisBlocks.
@@ -75,13 +72,13 @@ def one_electron_matrix(
         functions in block2.
     """
     # Indices used to broadcast tensors to matrices.
-    cartesian_indices = broadcasting.broadcast_indices(
+    cartesian_indices = broadcast_indices(
         block1.cartesian_powers, block2.cartesian_powers
     )
 
     # Generate all pairs of exponents.
     # flat_exps1 and flat_exps2 have shape (n_exps1*n_exps2,)
-    exp_flat_product = broadcasting.flat_product(
+    exp_flat_product = flat_product(
         jnp.asarray(block1.exponents), jnp.asarray(block2.exponents)
     )
 
@@ -147,13 +144,13 @@ def two_electron_matrix(
     blocks = (block1, block2, block3, block4)
 
     # Indices used to broadcast tensors to matrices.
-    cartesian_indices = broadcasting.broadcast_indices(
+    cartesian_indices = broadcast_indices(
         *tuple(b.cartesian_powers for b in blocks)
     )
 
     # Generate all pairs of exponents.
     # flat_exps1 and flat_exps2 have shape (n_exps1*n_exps2,)
-    exp_flat_product = broadcasting.flat_product(
+    exp_flat_product = flat_product(
         *tuple(jnp.asarray(b.exponents) for b in blocks)
     )
 

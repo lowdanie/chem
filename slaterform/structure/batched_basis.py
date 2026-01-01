@@ -7,21 +7,20 @@ from jax import numpy as jnp
 from jax.tree_util import register_pytree_node_class
 import numpy as np
 
-from slaterform.basis import basis_block
-from slaterform.jax_utils import batching
-from slaterform.structure import atom as atom_lib
-from slaterform.structure import molecule as mol_lib
-from slaterform.symmetry import quartet
+from slaterform.basis.basis_block import BasisBlock
+from slaterform.jax_utils.batching import BatchedTreeTuples, batch_tree_tuples
+from slaterform.structure.atom import Atom
+from slaterform.structure.molecule import Molecule
+from slaterform.symmetry.quartet import iter_canonical_quartets
 
 
 def _build_basis_blocks(
-    atoms: Sequence[atom_lib.Atom],
-) -> Sequence[basis_block.BasisBlock]:
+    atoms: Sequence[Atom],
+) -> Sequence[BasisBlock]:
     basis_blocks = []
     for atom in atoms:
         basis_blocks.extend(
-            basis_block.build_basis_block(gto, atom.position)
-            for gto in atom.shells
+            BasisBlock.from_gto(gto, atom.position) for gto in atom.shells
         )
 
     return basis_blocks
@@ -35,18 +34,18 @@ class BatchedBasis:
     Holds both 1-electron (pair) and 2-electron batches.
     """
 
-    atoms: Sequence[atom_lib.Atom]
-    basis_blocks: Sequence[basis_block.BasisBlock]
+    atoms: Sequence[Atom]
+    basis_blocks: Sequence[BasisBlock]
 
     # The starting indices of each basis block in the full basis set.
     # Shape: (n_blocks,)
     block_starts: jax.Array
 
     # Batches for 1-electron integrals. Tuple length = 2.
-    batches_1e: Sequence[batching.BatchedTreeTuples]
+    batches_1e: Sequence[BatchedTreeTuples]
 
     # Batches for 2-electron integrals. Tuple length = 4.
-    batches_2e: Sequence[batching.BatchedTreeTuples]
+    batches_2e: Sequence[BatchedTreeTuples]
 
     @property
     def n_basis(self) -> int:
@@ -82,7 +81,7 @@ class BatchedBasis:
     @classmethod
     def from_molecule(
         cls,
-        molecule: mol_lib.Molecule,
+        molecule: Molecule,
         batch_size_1e: int = 4096,
         batch_size_2e: int = 2048,
     ) -> "BatchedBasis":
@@ -98,17 +97,17 @@ class BatchedBasis:
         pairs = list(
             itertools.combinations_with_replacement(range(n_blocks), 2)
         )
-        batches_1e = batching.batch_tree_tuples(
+        batches_1e = batch_tree_tuples(
             trees=basis_blocks,
             tuple_length=2,
             tuple_indices=pairs,
             max_batch_size=batch_size_1e,
         )
 
-        batches_2e = batching.batch_tree_tuples(
+        batches_2e = batch_tree_tuples(
             trees=basis_blocks,
             tuple_length=4,
-            tuple_indices=list(quartet.iter_canonical_quartets(n_blocks)),
+            tuple_indices=list(iter_canonical_quartets(n_blocks)),
             max_batch_size=batch_size_2e,
         )
 

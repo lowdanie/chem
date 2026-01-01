@@ -3,7 +3,7 @@ import itertools
 import functools
 
 import jax
-from jax import numpy as jnp
+import jax.numpy as jnp
 
 # A quartet is a tuple of four indices which we will typically
 # denote as (i, j, k, l).

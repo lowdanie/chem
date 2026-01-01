@@ -3,14 +3,14 @@ import dataclasses
 
 from jax.tree_util import register_pytree_node_class
 
-from slaterform.structure import atom as atom_lib
-from slaterform.adapters import bse
+from slaterform.structure.atom import Atom
+from slaterform.adapters.bse import load as load_basis
 
 
 @register_pytree_node_class
 @dataclasses.dataclass
 class Molecule:
-    atoms: Sequence[atom_lib.Atom]
+    atoms: Sequence[Atom]
 
     def tree_flatten(self):
         children = (self.atoms,)
@@ -19,21 +19,21 @@ class Molecule:
 
     @classmethod
     def tree_unflatten(
-        cls, aux_data: None, children: tuple[Sequence[atom_lib.Atom],]
+        cls, aux_data: None, children: tuple[Sequence[Atom],]
     ) -> "Molecule":
         return cls(atoms=children[0])
 
     @classmethod
     def from_geometry(
-        cls, atoms: Sequence[atom_lib.Atom], basis_name: str
+        cls, atoms: Sequence[Atom], basis_name: str
     ) -> "Molecule":
         """Builds a Molecule object from a sequence of atomic positions and a basis set name."""
         atoms = [
-            atom_lib.Atom(
+            Atom(
                 symbol=atom.symbol,
                 number=atom.number,
                 position=atom.position,
-                shells=bse.load(basis_name=basis_name, element=atom.number),
+                shells=load_basis(basis_name=basis_name, element=atom.number),
             )
             for atom in atoms
         ]

@@ -4,10 +4,10 @@ from collections.abc import Sequence
 import jax
 from jax import numpy as jnp
 
-from slaterform.structure import atom as atom_lib
+from slaterform.structure.atom import Atom
 
 
-def repulsion_energy(atoms: Sequence[atom_lib.Atom]) -> jax.Array:
+def repulsion_energy(atoms: Sequence[Atom]) -> jax.Array:
     """Computes the nuclear repulsion energy for a given molecule.
 
     Formula:

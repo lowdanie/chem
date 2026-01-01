@@ -3,7 +3,6 @@ import dataclasses
 import jax
 import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
-import numpy as np
 
 import slaterform.types as types
 

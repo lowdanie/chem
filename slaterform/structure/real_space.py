@@ -1,13 +1,11 @@
 import numpy as np
 import numpy.typing as npt
 
-from slaterform.basis import real_space as basis_real_space
-from slaterform.structure import batched_basis
+from slaterform.basis.real_space import evaluate as evaluate_basis
+from slaterform.structure.batched_basis import BatchedBasis
 
 
-def evaluate(
-    basis: batched_basis.BatchedBasis, points: np.ndarray
-) -> np.ndarray:
+def evaluate(basis: BatchedBasis, points: np.ndarray) -> np.ndarray:
     """Evaluate the basis functions at specified points.
 
     Args:
@@ -21,7 +19,7 @@ def evaluate(
     block_evals = []
 
     for block in basis.basis_blocks:
-        block_eval = basis_real_space.evaluate(block, points)
+        block_eval = evaluate_basis(block, points)
         block_evals.append(block_eval)
 
     return np.concatenate(block_evals, axis=-1)

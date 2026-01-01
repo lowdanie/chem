@@ -1,10 +1,9 @@
 import jax
-from jax import jit
 import jax.numpy as jnp
-import numpy as np
 
-from slaterform.integrals import gaussian
-from slaterform.integrals import overlap
+from slaterform.integrals.gaussian import GaussianBasis3d
+from slaterform.integrals.gaussian import gaussian_3d_to_1d
+from slaterform.integrals.overlap import overlap_1d
 
 
 def _kinetic_1d_from_overlap_1d(
@@ -89,9 +88,7 @@ def _kinetic_3d_from_overlap_1d(
     return term_x + term_y + term_z
 
 
-def kinetic_3d(
-    g1: gaussian.GaussianBasis3d, g2: gaussian.GaussianBasis3d
-) -> jax.Array:
+def kinetic_3d(g1: GaussianBasis3d, g2: GaussianBasis3d) -> jax.Array:
     """Calculates the matrix elements of the Laplacian operator.
 
     Formula:
@@ -116,19 +113,17 @@ def kinetic_3d(
     # Increase the degree of g2 by +2
     # We need this because the kinetic operator involves 2nd derivatives,
     # so we need overlaps of higher angular momentum to resolve it.
-    g2_boosted = gaussian.GaussianBasis3d(
+    g2_boosted = GaussianBasis3d(
         max_degree=g2.max_degree + 2, exponent=g2.exponent, center=g2.center
     )
 
     # Compute 1D Overlaps using the boosted g2
     # Shape: (d1+1, d2+3)
-    g1x, g1y, g1z = [gaussian.gaussian_3d_to_1d(g1, i) for i in range(3)]
-    g2x, g2y, g2z = [
-        gaussian.gaussian_3d_to_1d(g2_boosted, i) for i in range(3)
-    ]
+    g1x, g1y, g1z = [gaussian_3d_to_1d(g1, i) for i in range(3)]
+    g2x, g2y, g2z = [gaussian_3d_to_1d(g2_boosted, i) for i in range(3)]
 
-    S_x = overlap.overlap_1d(g1x, g2x)
-    S_y = overlap.overlap_1d(g1y, g2y)
-    S_z = overlap.overlap_1d(g1z, g2z)
+    S_x = overlap_1d(g1x, g2x)
+    S_y = overlap_1d(g1y, g2y)
+    S_z = overlap_1d(g1z, g2z)
 
     return _kinetic_3d_from_overlap_1d(S_x, S_y, S_z, jnp.asarray(g2.exponent))

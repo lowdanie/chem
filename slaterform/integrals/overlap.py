@@ -2,19 +2,19 @@ from typing import NamedTuple
 import functools
 
 import jax
-from jax import jit
 import jax.numpy as jnp
-import numpy as np
 
-from slaterform.integrals import gaussian
+from slaterform.integrals.gaussian import GaussianBasis1d, GaussianBasis3d
+from slaterform.integrals.gaussian import (
+    gaussian_3d_to_1d,
+    overlap_prefactor_1d,
+)
 
 
-def _base_case(
-    g1: gaussian.GaussianBasis1d, g2: gaussian.GaussianBasis1d
-) -> jax.Array:
+def _base_case(g1: GaussianBasis1d, g2: GaussianBasis1d) -> jax.Array:
     p = g1.exponent + g2.exponent
-    K = gaussian.overlap_prefactor_1d(g1, g2)
-    return jnp.sqrt(np.pi / p) * K
+    K = overlap_prefactor_1d(g1, g2)
+    return jnp.sqrt(jnp.pi / p) * K
 
 
 class _VerticalTransferParams(NamedTuple):
@@ -56,8 +56,8 @@ def _vertical_transfer_step(
 
 def _vertical_transfer(
     s_base: jax.Array,
-    g1: gaussian.GaussianBasis1d,
-    g2: gaussian.GaussianBasis1d,
+    g1: GaussianBasis1d,
+    g2: GaussianBasis1d,
 ) -> jax.Array:
     """Computes the vertical recurrence column S[:, 0].
 
@@ -115,7 +115,7 @@ def _horizontal_transfer_step(
 
 
 def _horizontal_transfer(
-    s_j0: jax.Array, g1: gaussian.GaussianBasis1d, g2: gaussian.GaussianBasis1d
+    s_j0: jax.Array, g1: GaussianBasis1d, g2: GaussianBasis1d
 ) -> jax.Array:
     """Applies horizontal transfer to generate columns 1 through M.
 
@@ -136,9 +136,7 @@ def _horizontal_transfer(
     return jnp.hstack([s_j0[:, None], s_rest.T])
 
 
-def overlap_1d(
-    g1: gaussian.GaussianBasis1d, g2: gaussian.GaussianBasis1d
-) -> jax.Array:
+def overlap_1d(g1: GaussianBasis1d, g2: GaussianBasis1d) -> jax.Array:
     """Computes the 1D overlap matrix between two Gaussians.
 
     Args:
@@ -179,9 +177,7 @@ def _overlap_3d_from_1d(
     return jnp.einsum("ad,be,cf->abcdef", S_x, S_y, S_z)
 
 
-def overlap_3d(
-    g1: gaussian.GaussianBasis3d, g2: gaussian.GaussianBasis3d
-) -> jax.Array:
+def overlap_3d(g1: GaussianBasis3d, g2: GaussianBasis3d) -> jax.Array:
     """Computes the overlap integrals between two 3D Gaussian basis shells.
 
     Formula:
@@ -199,10 +195,7 @@ def overlap_3d(
         A 6-dimensional array S with shape: (L1+1, L1+1, L1+1, L2+1, L2+1, L2+1)
     """
     S_x, S_y, S_z = [
-        overlap_1d(
-            gaussian.gaussian_3d_to_1d(g1, i),
-            gaussian.gaussian_3d_to_1d(g2, i),
-        )
+        overlap_1d(gaussian_3d_to_1d(g1, i), gaussian_3d_to_1d(g2, i))
         for i in range(3)
     ]
 

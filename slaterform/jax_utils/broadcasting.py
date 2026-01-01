@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 
-from slaterform import types
+import slaterform.types as types
 
 
 def broadcast_indices(

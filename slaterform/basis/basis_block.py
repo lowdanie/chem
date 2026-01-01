@@ -1,5 +1,4 @@
 import dataclasses
-from typing import Callable
 import functools
 
 import jax
@@ -13,6 +12,15 @@ from slaterform.basis.cartesian import (
     compute_normalization_constants,
     generate_cartesian_powers,
 )
+
+
+def _compute_normalization_factors(
+    max_degree: int, cartesian_powers: types.StaticArray, exponents: types.Array
+) -> jax.Array:
+    f = functools.partial(
+        compute_normalization_constants, max_degree, cartesian_powers
+    )
+    return jax.vmap(f)(exponents).T
 
 
 @register_pytree_node_class
@@ -96,43 +104,40 @@ class BasisBlock:
             basis_transform=children[3],
         )
 
-
-def _compute_normalization_factors(
-    max_degree: int, cartesian_powers: types.StaticArray, exponents: types.Array
-) -> jax.Array:
-    f = functools.partial(
-        compute_normalization_constants, max_degree, cartesian_powers
-    )
-    return jax.vmap(f)(exponents).T
-
-
-def build_basis_block(gto: ContractedGTO, center: types.Array) -> BasisBlock:
-    """Builds a BasisBlock from a ContractedGTO at the given center."""
-    if gto.primitive_type != PrimitiveType.CARTESIAN:
-        raise NotImplementedError(
-            "Only Cartesian contracted GTOs are supported currently."
+    @classmethod
+    def from_gto(cls, gto: ContractedGTO, center: types.Array) -> "BasisBlock":
+        """Builds a BasisBlock from a ContractedGTO at the given center."""
+        if gto.primitive_type != PrimitiveType.CARTESIAN:
+            raise NotImplementedError(
+                "Only Cartesian contracted GTOs are supported currently."
+            )
+        max_degree = max(gto.angular_momentum)
+        power_blocks = [
+            generate_cartesian_powers(l) for l in gto.angular_momentum
+        ]
+        power_block_sizes = np.array(
+            [powers.shape[0] for powers in power_blocks]
         )
-    max_degree = max(gto.angular_momentum)
-    power_blocks = [generate_cartesian_powers(l) for l in gto.angular_momentum]
-    power_block_sizes = np.array([powers.shape[0] for powers in power_blocks])
 
-    # The cartesian powers are static and can be stored as a numpy array.
-    cartesian_powers = np.vstack(power_blocks)
+        # The cartesian powers are static and can be stored as a numpy array.
+        cartesian_powers = np.vstack(power_blocks)
 
-    contraction_matrix = jnp.repeat(gto.coefficients, power_block_sizes, axis=0)
-    norm_factors = _compute_normalization_factors(
-        max_degree,
-        cartesian_powers,
-        gto.exponents,
-    )
-    basis_transform = jnp.eye(
-        cartesian_powers.shape[0], dtype=contraction_matrix.dtype
-    )
+        contraction_matrix = jnp.repeat(
+            gto.coefficients, power_block_sizes, axis=0
+        )
+        norm_factors = _compute_normalization_factors(
+            max_degree,
+            cartesian_powers,
+            gto.exponents,
+        )
+        basis_transform = jnp.eye(
+            cartesian_powers.shape[0], dtype=contraction_matrix.dtype
+        )
 
-    return BasisBlock(
-        center=center,
-        exponents=gto.exponents,
-        cartesian_powers=cartesian_powers,
-        contraction_matrix=norm_factors * contraction_matrix,
-        basis_transform=basis_transform,
-    )
+        return cls(
+            center=center,
+            exponents=gto.exponents,
+            cartesian_powers=cartesian_powers,
+            contraction_matrix=norm_factors * contraction_matrix,
+            basis_transform=basis_transform,
+        )

@@ -4,8 +4,8 @@ from collections.abc import Sequence
 import jax
 from jax.tree_util import register_pytree_node_class
 
-from slaterform import types
-from slaterform.basis import contracted_gto
+import slaterform.types as types
+from slaterform.basis.contracted_gto import ContractedGTO
 
 
 @register_pytree_node_class
@@ -18,9 +18,7 @@ class Atom:
     position: types.Array
 
     # The basis functions centered on this atom.
-    shells: Sequence[contracted_gto.ContractedGTO] = dataclasses.field(
-        default_factory=list
-    )
+    shells: Sequence[ContractedGTO] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         types.promote_dataclass_fields(self)
@@ -34,7 +32,7 @@ class Atom:
     def tree_unflatten(
         cls,
         aux_data: tuple[str, int],
-        children: tuple[jax.Array, Sequence[contracted_gto.ContractedGTO]],
+        children: tuple[jax.Array, Sequence[ContractedGTO]],
     ) -> "Atom":
         return cls(
             symbol=aux_data[0],

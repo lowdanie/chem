@@ -5,32 +5,31 @@ import functools
 from jax import jit
 import numpy as np
 
-from slaterform.basis import basis_block
 from slaterform.basis import operators
 import slaterform as sf
 
 
 @dataclasses.dataclass
 class _OneElectronMatrixTestCase:
-    block1: basis_block.BasisBlock
-    block2: basis_block.BasisBlock
+    block1: sf.BasisBlock
+    block2: sf.BasisBlock
     expected: np.ndarray
 
 
 @dataclasses.dataclass
 class _OneElectronCoulombMatrixTestCase:
-    block1: basis_block.BasisBlock
-    block2: basis_block.BasisBlock
+    block1: sf.BasisBlock
+    block2: sf.BasisBlock
     C: np.ndarray  # shape (3,)
     expected: np.ndarray
 
 
 @dataclasses.dataclass
 class _TwoElectronCoulombMatrixTestCase:
-    block1: basis_block.BasisBlock
-    block2: basis_block.BasisBlock
-    block3: basis_block.BasisBlock
-    block4: basis_block.BasisBlock
+    block1: sf.BasisBlock
+    block2: sf.BasisBlock
+    block3: sf.BasisBlock
+    block4: sf.BasisBlock
     expected_coords: np.ndarray  # shape (n, 3)
     expected_values: np.ndarray  # shape (n,)
 
@@ -92,7 +91,7 @@ class _TwoElectronCoulombMatrixTestCase:
     "case",
     [
         _OneElectronMatrixTestCase(
-            block1=basis_block.BasisBlock(
+            block1=sf.BasisBlock(
                 center=np.array([1.0, 0.0, 0.0]),
                 exponents=np.array([0.1, 0.2, 0.3], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -116,7 +115,7 @@ class _TwoElectronCoulombMatrixTestCase:
                 ),
                 basis_transform=3 * np.eye(5, dtype=np.float64),
             ),
-            block2=basis_block.BasisBlock(
+            block2=sf.BasisBlock(
                 center=np.array([0.0, 1.0, -1.0]),
                 exponents=np.array([0.4, 0.5], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -213,7 +212,7 @@ def test_overlap_matrix(case):
     "case",
     [
         _OneElectronMatrixTestCase(
-            block1=basis_block.BasisBlock(
+            block1=sf.BasisBlock(
                 center=np.array([1.0, 0.0, 0.0]),
                 exponents=np.array([0.1, 0.2], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -235,7 +234,7 @@ def test_overlap_matrix(case):
                 ),
                 basis_transform=np.eye(4, dtype=np.float64),
             ),
-            block2=basis_block.BasisBlock(
+            block2=sf.BasisBlock(
                 center=np.array([0.0, 1.0, -1.0]),
                 exponents=np.array([0.4, 0.5], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -326,7 +325,7 @@ def test_kinetic_matrix(case):
     "case",
     [
         _OneElectronCoulombMatrixTestCase(
-            block1=basis_block.BasisBlock(
+            block1=sf.BasisBlock(
                 center=np.array([1.0, 0.0, 0.0]),
                 exponents=np.array([0.1, 0.2], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -348,7 +347,7 @@ def test_kinetic_matrix(case):
                 ),
                 basis_transform=np.eye(4, dtype=np.float64),
             ),
-            block2=basis_block.BasisBlock(
+            block2=sf.BasisBlock(
                 center=np.array([0.0, 1.0, -1.0]),
                 exponents=np.array([0.4, 0.5], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -435,7 +434,7 @@ def test_one_electron_coulomb_matrix(case):
     "case",
     [
         _TwoElectronCoulombMatrixTestCase(
-            block1=basis_block.BasisBlock(
+            block1=sf.BasisBlock(
                 center=np.array([1.0, 0.0, 0.0]),
                 exponents=np.array([0.1, 0.2], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -457,7 +456,7 @@ def test_one_electron_coulomb_matrix(case):
                 ),
                 basis_transform=np.eye(4, dtype=np.float64),
             ),
-            block2=basis_block.BasisBlock(
+            block2=sf.BasisBlock(
                 center=np.array([0.0, 1.0, -1.0]),
                 exponents=np.array([0.3, 0.4], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -481,7 +480,7 @@ def test_one_electron_coulomb_matrix(case):
                 ),
                 basis_transform=np.eye(5, dtype=np.float64),
             ),
-            block3=basis_block.BasisBlock(
+            block3=sf.BasisBlock(
                 center=np.array([1.0, 0.0, -1.0]),
                 exponents=np.array([0.5, 0.6], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -503,7 +502,7 @@ def test_one_electron_coulomb_matrix(case):
                 ),
                 basis_transform=np.eye(4, dtype=np.float64),
             ),
-            block4=basis_block.BasisBlock(
+            block4=sf.BasisBlock(
                 center=np.array([-1.0, 1.0, 0.0]),
                 exponents=np.array([0.4, 0.5], dtype=np.float64),
                 cartesian_powers=np.array(
@@ -586,7 +585,7 @@ def test_bse_identity(basis_name, element):
     center = np.array([0.0, 1.0, 2.0])
 
     for gto in gtos:
-        block = basis_block.build_basis_block(gto, center)
+        block = sf.BasisBlock.from_gto(gto, center)
         num_basis = block.basis_transform.shape[0]
         S = operators.one_electron_matrix(block, block, sf.integrals.overlap_3d)
 
@@ -594,7 +593,7 @@ def test_bse_identity(basis_name, element):
 
 
 def test_overlap_symmetry():
-    block = basis_block.BasisBlock(
+    block = sf.BasisBlock(
         center=np.array([0.0, 0.0, 0.0]),
         exponents=np.array([1.0, 2.0]),
         cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
@@ -612,7 +611,7 @@ def test_overlap_symmetry():
 
 
 def test_kinetic_symmetry():
-    block = basis_block.BasisBlock(
+    block = sf.BasisBlock(
         center=np.array([0.0, 0.0, 0.0]),
         exponents=np.array([1.0, 2.0]),
         cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
@@ -630,7 +629,7 @@ def test_kinetic_symmetry():
 
 
 def test_one_electron_symmetry():
-    block = basis_block.BasisBlock(
+    block = sf.BasisBlock(
         center=np.array([0.0, 0.0, 0.0]),
         exponents=np.array([1.0, 2.0]),
         cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
@@ -651,28 +650,28 @@ def test_one_electron_symmetry():
 
 def test_two_electron_coulomb_symmetry():
     blocks = [
-        basis_block.BasisBlock(
+        sf.BasisBlock(
             center=np.array([0.0, 0.0, 1.0]),
             exponents=np.array([0.1, 0.2]),
             cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
             contraction_matrix=np.array([[0.6, 0.4], [0.3, 0.7]]),
             basis_transform=np.eye(2),
         ),
-        basis_block.BasisBlock(
+        sf.BasisBlock(
             center=np.array([1.0, 0.0, 1.0]),
             exponents=np.array([0.3, 0.4]),
             cartesian_powers=np.array([[0, 0, 0], [0, 1, 0]]),
             contraction_matrix=np.array([[0.5, 0.3], [0.1, 0.2]]),
             basis_transform=np.eye(2),
         ),
-        basis_block.BasisBlock(
+        sf.BasisBlock(
             center=np.array([0.0, 1.0, 0.0]),
             exponents=np.array([0.5, 0.6]),
             cartesian_powers=np.array([[0, 0, 0], [0, 0, 1]]),
             contraction_matrix=np.array([[0.4, 0.2], [0.3, 0.1]]),
             basis_transform=np.eye(2),
         ),
-        basis_block.BasisBlock(
+        sf.BasisBlock(
             center=np.array([1.0, 1.0, 0.0]),
             exponents=np.array([0.7, 0.8]),
             cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),

@@ -57,7 +57,7 @@ def test_molecule_pytree():
 
 
 @mock.patch(
-    "slaterform.adapters.bse.load", side_effect=_mock_bse_load_side_effect
+    "slaterform.structure.molecule.load_basis", side_effect=_mock_bse_load_side_effect
 )
 def test_from_geometry(mock_bse_load):
     geometry = [

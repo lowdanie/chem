@@ -2,12 +2,12 @@ from typing import NamedTuple
 import functools
 
 import jax
-from jax import jit
 import jax.numpy as jnp
 from jax.scipy.special import gammainc, gamma
 import numpy as np
 
-from slaterform.integrals import gaussian
+from slaterform.integrals.gaussian import GaussianBasis3d
+from slaterform.integrals.gaussian import overlap_prefactor_3d
 
 
 # Use a first order Taylor approximation for the Boys function for
@@ -58,8 +58,8 @@ def boys(n: int, x: jax.Array) -> jax.Array:
 
 def _V_base_case(
     size_n: int,
-    g1: gaussian.GaussianBasis3d,
-    g2: gaussian.GaussianBasis3d,
+    g1: GaussianBasis3d,
+    g2: GaussianBasis3d,
     s: jax.Array,
     C: jax.Array,
     P: jax.Array,
@@ -83,7 +83,7 @@ def _V_base_case(
       An array V_base of shape (size_n,) that satisfies:
       V_base[i] = V[i,0,0,0]
     """
-    K = gaussian.overlap_prefactor_3d(g1, g2)
+    K = overlap_prefactor_3d(g1, g2)
     dist_sq = jnp.sum(jnp.square(P - C))
     indices = jnp.arange(size_n)
 
@@ -187,8 +187,8 @@ def _V_vertical_transfer(
 
 
 def _V(
-    g1: gaussian.GaussianBasis3d,
-    g2: gaussian.GaussianBasis3d,
+    g1: GaussianBasis3d,
+    g2: GaussianBasis3d,
     s: jax.Array,
     C: jax.Array,
 ) -> jax.Array:
@@ -418,10 +418,10 @@ def _electron_transfer(
 
 
 def _two_electron_base_case(
-    g1: gaussian.GaussianBasis3d,
-    g2: gaussian.GaussianBasis3d,
-    g3: gaussian.GaussianBasis3d,
-    g4: gaussian.GaussianBasis3d,
+    g1: GaussianBasis3d,
+    g2: GaussianBasis3d,
+    g3: GaussianBasis3d,
+    g4: GaussianBasis3d,
 ) -> jax.Array:
     a = jnp.asarray(g1.exponent)
     b = jnp.asarray(g2.exponent)
@@ -434,15 +434,15 @@ def _two_electron_base_case(
 
     Q = (c * C + d * D) / q
 
-    K = gaussian.overlap_prefactor_3d(g3, g4)
+    K = overlap_prefactor_3d(g3, g4)
     alpha = 2 * jnp.power(jnp.pi, 5 / 2) / (p * q * jnp.sqrt(p + q))
 
     return alpha * K * _V(g1, g2, s, Q)
 
 
 def one_electron(
-    g1: gaussian.GaussianBasis3d,
-    g2: gaussian.GaussianBasis3d,
+    g1: GaussianBasis3d,
+    g2: GaussianBasis3d,
     C: jax.Array,
 ) -> jax.Array:
     """Computes the one electron Coulomb integral with center C.
@@ -471,9 +471,7 @@ def one_electron(
     b, B, d2 = jnp.asarray(g2.exponent), jnp.asarray(g2.center), g2.max_degree
 
     # Pad g1 so that we have enough space to do horizontal transfers.
-    padded_g1 = gaussian.GaussianBasis3d(
-        max_degree=d1 + d2, exponent=a, center=A
-    )
+    padded_g1 = GaussianBasis3d(max_degree=d1 + d2, exponent=a, center=A)
 
     # Compute the base case I[...,0,0,0]
     I = (2 * jnp.pi / (a + b)) * _V(padded_g1, g2, a + b, C)
@@ -489,10 +487,10 @@ def one_electron(
 
 
 def two_electron(
-    g1: gaussian.GaussianBasis3d,
-    g2: gaussian.GaussianBasis3d,
-    g3: gaussian.GaussianBasis3d,
-    g4: gaussian.GaussianBasis3d,
+    g1: GaussianBasis3d,
+    g2: GaussianBasis3d,
+    g3: GaussianBasis3d,
+    g4: GaussianBasis3d,
 ) -> jax.Array:
     """Computes the two electron Coulomb repulsion integral.
 
@@ -523,7 +521,7 @@ def two_electron(
     """
     # Pad g3 so that we have enough space to do horizontal transfers
     # to g4.
-    padded_g3 = gaussian.GaussianBasis3d(
+    padded_g3 = GaussianBasis3d(
         max_degree=g3.max_degree + g4.max_degree,
         exponent=g3.exponent,
         center=g3.center,
@@ -531,7 +529,7 @@ def two_electron(
 
     # Pad g1 so that we have enough space to do horizontal transfers
     # to g2 and electron transfers to padded_g3.
-    padded_g1 = gaussian.GaussianBasis3d(
+    padded_g1 = GaussianBasis3d(
         max_degree=g1.max_degree + g2.max_degree + padded_g3.max_degree,
         exponent=g1.exponent,
         center=g1.center,
