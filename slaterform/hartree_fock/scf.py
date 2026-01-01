@@ -29,35 +29,75 @@ SolverCallback = Callable[["State"], None]
 
 @register_pytree_node_class
 @dataclasses.dataclass
+class CallbackOptions:
+    interval: types.IntScalar = 10
+    func: Optional[SolverCallback] = None
+
+    def __post_init__(self):
+        if isinstance(self.interval, int):
+            if self.interval < 1:
+                raise ValueError("callback_interval must be >= 1")
+        types.promote_dataclass_fields(self)
+
+    def tree_flatten(self):
+        children = (self.interval,)
+        aux_data = (self.func,)
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(
+            interval=children[0],
+            func=aux_data[0],
+        )
+
+
+@register_pytree_node_class
+@dataclasses.dataclass
 class Options:
     max_iterations: types.IntScalar = 50
     convergence_threshold: types.Scalar = 1e-6
-    callback_interval: types.IntScalar = 10
-    callback: Optional[SolverCallback] = None
+    callback: CallbackOptions = dataclasses.field(
+        default_factory=CallbackOptions
+    )
 
     def __post_init__(self):
-        if isinstance(self.callback_interval, int):
-            if self.callback_interval < 1:
-                raise ValueError("callback_interval must be >= 1")
-
         types.promote_dataclass_fields(self)
 
     def tree_flatten(self):
         children = (
             self.max_iterations,
             self.convergence_threshold,
-            self.callback_interval,
+            self.callback,
         )
-        aux_data = (self.callback,)
+        aux_data = None
         return children, aux_data
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         return cls(
-            max_iterations=children[0],
-            convergence_threshold=children[1],
-            callback_interval=children[2],
-            callback=aux_data[0],
+            *children,
+        )
+
+
+@register_pytree_node_class
+@dataclasses.dataclass
+class FixedOptions:
+    n_steps: int = 20
+    callback: CallbackOptions = dataclasses.field(
+        default_factory=CallbackOptions
+    )
+
+    def tree_flatten(self):
+        children = (self.callback,)
+        aux_data = (self.n_steps,)
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(
+            n_steps=aux_data[0],
+            callback=children[0],
         )
 
 
@@ -207,9 +247,9 @@ def build_initial_state(basis: BatchedBasis) -> State:
     )
 
 
-def build_result(state: State, options: Options) -> Result:
+def build_result(state: State, converged: jax.Array) -> Result:
     return Result(
-        converged=state.delta_P <= options.convergence_threshold,
+        converged=converged,
         iterations=state.iteration,
         electronic_energy=state.electronic_energy,
         nuclear_energy=state.context.nuclear_energy,
@@ -267,14 +307,14 @@ def _should_continue(state: State, options: Options) -> jax.Array:
     )
 
 
-def _maybe_run_callback(state: State, options: Options) -> None:
-    if options.callback is None:
+def _maybe_run_callback(state: State, options: CallbackOptions) -> None:
+    if options.func is None:
         return
 
-    should_run = state.iteration % options.callback_interval == 0
+    should_run = state.iteration % options.interval == 0
 
     def run_callback():
-        jax.debug.callback(options.callback, state)
+        jax.debug.callback(options.func, state)
 
     def noop_callback():
         return None
@@ -282,9 +322,9 @@ def _maybe_run_callback(state: State, options: Options) -> None:
     jax.lax.cond(should_run, run_callback, noop_callback)
 
 
-def _perform_step(state: State, options: Options) -> State:
+def _perform_step(state: State, cb_options: CallbackOptions) -> State:
     state = scf_step(state)
-    _maybe_run_callback(state, options)
+    _maybe_run_callback(state, cb_options)
 
     return state
 
@@ -303,7 +343,30 @@ def solve(
     state = build_initial_state(basis)
 
     cond_fn = functools.partial(_should_continue, options=options)
-    step_fn = functools.partial(_perform_step, options=options)
+    step_fn = functools.partial(_perform_step, cb_options=options.callback)
     state = jax.lax.while_loop(cond_fn, step_fn, state)
 
-    return build_result(state, options)
+    converged = state.delta_P <= options.convergence_threshold
+    return build_result(state, converged)
+
+
+def solve_fixed(
+    system: BatchedBasis | Molecule,
+    options: FixedOptions = FixedOptions(),
+) -> Result:
+    """Performs the self-consistent field (SCF) procedure to compute the
+    molecular orbital coefficients and energy.
+
+    Returns:
+        A Result object containing the final energy and orbital coefficients.
+    """
+    basis = _build_basis(system)
+    state = build_initial_state(basis)
+
+    def scan_fn(state, _):
+        state = _perform_step(state, options.callback)
+        return state, None
+
+    state, _ = jax.lax.scan(scan_fn, state, None, length=options.n_steps)
+
+    return build_result(state, converged=jnp.asarray(False))

@@ -85,20 +85,43 @@ _EXPECTED_ELECTRONIC_ENERGY_H2O = -84.04881208  # Hartree
 _EXPECTED_TOTAL_ENERGY_H20 = -74.96444758  # Hartree
 
 
-def test_options_pytree():
-    options = sf.hartree_fock.scf.Options(
-        max_iterations=50,
-        convergence_threshold=1e-6,
-        callback_interval=5,
-        callback=lambda state: print("test"),
+def test_callback_options_pytree():
+    options = sf.hartree_fock.scf.CallbackOptions(
+        interval=10,
+        func=lambda state: print("test callback"),
     )
 
     pytree_utils.assert_valid_pytree(options)
 
 
-def test_options_zero_callback_intervals():
+def test_callback_options_zero_callback_intervals():
     with pytest.raises(ValueError):
-        sf.hartree_fock.scf.Options(callback_interval=0)
+        sf.hartree_fock.scf.CallbackOptions(interval=0)
+
+
+def test_options_pytree():
+    options = sf.hartree_fock.scf.Options(
+        max_iterations=50,
+        convergence_threshold=1e-6,
+        callback=sf.hartree_fock.scf.CallbackOptions(
+            interval=5,
+            func=lambda state: print("test"),
+        ),
+    )
+
+    pytree_utils.assert_valid_pytree(options)
+
+
+def test_fixed_options_pytree():
+    options = sf.hartree_fock.scf.FixedOptions(
+        n_steps=20,
+        callback=sf.hartree_fock.scf.CallbackOptions(
+            interval=5,
+            func=lambda state: print("test"),
+        ),
+    )
+
+    pytree_utils.assert_valid_pytree(options)
 
 
 def test_context_pytree():
@@ -185,14 +208,32 @@ def test_H2_from_molecule():
     )
 
 
+def test_H2_fixed():
+    basis = sf.BatchedBasis.from_molecule(_H2_MOLECULE)
+    result = jit(sf.hartree_fock.scf.solve_fixed)(basis)
+
+    np.testing.assert_almost_equal(
+        result.electronic_energy,
+        _EXPECTED_ELECTRONIC_ENERGY_H2,
+        decimal=4,
+    )
+    np.testing.assert_almost_equal(
+        result.total_energy,
+        _EXPECTED_TOTAL_ENERGY_H2,
+        decimal=4,
+    )
+
+
 @pytest.mark.slow
 def test_H2O():
     basis = sf.BatchedBasis.from_molecule(_H20_MOLECULE)
     options = sf.hartree_fock.scf.Options(
-        callback_interval=5,
-        callback=lambda state: print(
-            f"Iteration {state.iteration}: E = {state.electronic_energy:.8f} Ha"
-        ),
+        callback=sf.hartree_fock.scf.CallbackOptions(
+            interval=5,
+            func=lambda state: print(
+                f"Iteration {state.iteration}: E = {state.electronic_energy:.8f} Ha"
+            ),
+        )
     )
     result = jit(sf.hartree_fock.scf.solve)(basis, options=options)
 
