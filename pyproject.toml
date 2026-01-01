@@ -15,8 +15,9 @@ dependencies = [
     "scipy",
 ]
 
-[tool.setuptools]
-packages = ["slaterform"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["slaterform*"]
 
 [tool.pytest.ini_options]
 pythonpath = "."
