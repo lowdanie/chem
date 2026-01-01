@@ -10,7 +10,7 @@ from slaterform.basis.operators import (
 )
 from slaterform.jax_utils.batching import BatchedTreeTuples
 from slaterform.jax_utils.gather import extract_tiles_2d
-from slaterform.jax_utils.scatter import add_tiles_2d
+from slaterform.jax_utils.scatter import add_tiles
 from slaterform.integrals.coulomb import two_electron
 from slaterform.symmetry import quartet as quartet_lib
 from slaterform.structure.batched_basis import BatchedBasis
@@ -97,11 +97,10 @@ def _batch_step(
             n_cols=n_k,
         )
         J_ij = jnp.einsum("bijkl,blk->bij", sigma_integrals, P_lk)
-        G = add_tiles_2d(
-            matrix=G,
+        G = add_tiles(
+            target=G,
             tiles=J_ij,
-            row_starts=starts_i,
-            col_starts=starts_j,
+            starts=(starts_i, starts_j),
             mask=jnp.ones_like(batch_data.mask),
         )
 
@@ -114,11 +113,10 @@ def _batch_step(
             n_cols=n_k,
         )
         K_il = jnp.einsum("bijkl,bjk->bil", sigma_integrals, P_jk)
-        G = add_tiles_2d(
-            matrix=G,
+        G = add_tiles(
+            target=G,
             tiles=-0.5 * K_il,
-            row_starts=starts_i,
-            col_starts=starts_l,
+            starts=(starts_i, starts_l),
             mask=jnp.ones_like(batch_data.mask),
         )
 

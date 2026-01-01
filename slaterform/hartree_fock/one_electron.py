@@ -16,7 +16,7 @@ from slaterform.structure.batched_basis import BatchedBasis
 from slaterform.basis.basis_block import BasisBlock
 from slaterform.basis.operators import OneElectronOperator, one_electron_matrix
 from slaterform.jax_utils.batching import BatchedTreeTuples
-from slaterform.jax_utils.scatter import add_tiles_2d
+from slaterform.jax_utils.scatter import add_tiles
 
 _BlockOperator = Callable[[BasisBlock, BasisBlock], jax.Array]
 
@@ -60,11 +60,10 @@ def _batch_step(
     # shape: (batch_size, n_i_basis, n_j_basis)
     integral_matrix = params.batch_operator(i_block, j_block)
 
-    new_matrix = add_tiles_2d(
-        matrix=matrix,
+    new_matrix = add_tiles(
+        target=matrix,
         tiles=integral_matrix,
-        row_starts=i_start,
-        col_starts=j_start,
+        starts=(i_start, j_start),
         mask=batch_data.mask,
     )
 
@@ -73,11 +72,10 @@ def _batch_step(
         jnp.float32
     )
 
-    new_matrix = add_tiles_2d(
-        matrix=new_matrix,
+    new_matrix = add_tiles(
+        target=new_matrix,
         tiles=integral_matrix.transpose((0, 2, 1)),
-        row_starts=j_start,
-        col_starts=i_start,
+        starts=(j_start, i_start),
         mask=off_diagonal_mask,
     )
 

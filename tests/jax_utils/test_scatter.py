@@ -1,5 +1,6 @@
 import dataclasses
 import pytest
+from collections.abc import Sequence
 
 import jax
 from jax import numpy as jnp
@@ -9,11 +10,10 @@ from slaterform.jax_utils import scatter
 
 
 @dataclasses.dataclass
-class _AddTiles2DTestCase:
-    matrix: jax.Array
+class _AddTilesTestCase:
+    target: jax.Array
     tiles: jax.Array
-    row_starts: jax.Array
-    col_starts: jax.Array
+    starts: Sequence[jax.Array]
     mask: jax.Array
     expected: jax.Array
 
@@ -21,16 +21,25 @@ class _AddTiles2DTestCase:
 @pytest.mark.parametrize(
     "case",
     [
-        _AddTiles2DTestCase(
-            matrix=jnp.ones((2, 2)),
+        _AddTilesTestCase(
+            target=jnp.ones((2, 2)),
             tiles=jnp.empty((0, 1, 1)),
-            row_starts=jnp.empty((0,), dtype=jnp.int32),
-            col_starts=jnp.empty((0,), dtype=jnp.int32),
+            starts=[
+                jnp.empty((0,), dtype=jnp.int32),
+                jnp.empty((0,), dtype=jnp.int32),
+            ],
             mask=jnp.empty((0,)),
             expected=jnp.ones((2, 2)),
         ),
-        _AddTiles2DTestCase(
-            matrix=jnp.ones((4, 4)),
+        _AddTilesTestCase(
+            target=jnp.array([1, 2, 3, 4]),
+            tiles=jnp.array([[10], [20], [30]]),
+            starts=[jnp.array([0, 2, 3])],
+            mask=jnp.array([1, 0, 1]),
+            expected=jnp.array([11, 2, 3, 34]),
+        ),
+        _AddTilesTestCase(
+            target=jnp.ones((4, 4)),
             tiles=jnp.array(
                 [
                     [
@@ -47,8 +56,10 @@ class _AddTiles2DTestCase:
                     ],
                 ]
             ),
-            row_starts=jnp.array([0, 2, 0]),
-            col_starts=jnp.array([0, 2, 2]),
+            starts=[
+                jnp.array([0, 2, 0]),
+                jnp.array([0, 2, 2]),
+            ],
             mask=jnp.array([1, 1, 0]),
             expected=jnp.array(
                 [
@@ -59,8 +70,8 @@ class _AddTiles2DTestCase:
                 ]
             ),
         ),
-        _AddTiles2DTestCase(
-            matrix=jnp.zeros((4, 4)),
+        _AddTilesTestCase(
+            target=jnp.zeros((4, 4)),
             tiles=jnp.array(
                 [
                     [
@@ -73,8 +84,10 @@ class _AddTiles2DTestCase:
                     ],
                 ]
             ),
-            row_starts=jnp.array([0, 0]),
-            col_starts=jnp.array([0, 0]),
+            starts=[
+                jnp.array([0, 0]),
+                jnp.array([0, 0]),
+            ],
             mask=jnp.array([1, 1]),
             expected=jnp.array(
                 [
@@ -85,14 +98,52 @@ class _AddTiles2DTestCase:
                 ]
             ),
         ),
+        _AddTilesTestCase(
+            target=jnp.ones((4, 4, 4)),
+            tiles=jnp.array([2 * np.ones((2, 2, 2)), 3 * np.ones((2, 2, 2))]),
+            starts=[
+                jnp.array([0, 1]),
+                jnp.array([0, 0]),
+                jnp.array([0, 2]),
+            ],
+            mask=jnp.array([1, 1]),
+            expected=jnp.array(
+                [
+                    [
+                        [3, 3, 1, 1],
+                        [3, 3, 1, 1],
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1],
+                    ],
+                    [
+                        [3, 3, 4, 4],
+                        [3, 3, 4, 4],
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1],
+                    ],
+                    [
+                        [1, 1, 4, 4],
+                        [1, 1, 4, 4],
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1],
+                    ],
+                    [
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1],
+                    ],
+                ]
+            ),
+        ),
     ],
 )
-def test_add_tiles_2d(case: _AddTiles2DTestCase):
-    actual = scatter.add_tiles_2d(
-        matrix=case.matrix,
+def test_add_tiles(case: _AddTilesTestCase):
+    actual = scatter.add_tiles(
+        target=case.target,
         tiles=case.tiles,
-        row_starts=case.row_starts,
-        col_starts=case.col_starts,
+        starts=case.starts,
         mask=case.mask,
     )
+    print(actual)
     np.testing.assert_allclose(actual, case.expected)
