@@ -28,7 +28,7 @@ class Options:
     callback: Optional[SolverCallback] = None
 
     def __post_init__(self):
-        if isinstance(self.callback_interval, (int, float)):
+        if isinstance(self.callback_interval, int):
             if self.callback_interval < 1:
                 raise ValueError("callback_interval must be >= 1")
 
