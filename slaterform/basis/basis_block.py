@@ -7,9 +7,12 @@ import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 import numpy as np
 
-from slaterform import types
-from slaterform.basis import contracted_gto
-from slaterform.basis import cartesian
+import slaterform.types as types
+from slaterform.basis.contracted_gto import ContractedGTO, PrimitiveType
+from slaterform.basis.cartesian import (
+    compute_normalization_constants,
+    generate_cartesian_powers,
+)
 
 
 @register_pytree_node_class
@@ -98,23 +101,19 @@ def _compute_normalization_factors(
     max_degree: int, cartesian_powers: types.StaticArray, exponents: types.Array
 ) -> jax.Array:
     f = functools.partial(
-        cartesian.compute_normalization_constants, max_degree, cartesian_powers
+        compute_normalization_constants, max_degree, cartesian_powers
     )
     return jax.vmap(f)(exponents).T
 
 
-def build_basis_block(
-    gto: contracted_gto.ContractedGTO, center: types.Array
-) -> BasisBlock:
+def build_basis_block(gto: ContractedGTO, center: types.Array) -> BasisBlock:
     """Builds a BasisBlock from a ContractedGTO at the given center."""
-    if gto.primitive_type != contracted_gto.PrimitiveType.CARTESIAN:
+    if gto.primitive_type != PrimitiveType.CARTESIAN:
         raise NotImplementedError(
             "Only Cartesian contracted GTOs are supported currently."
         )
     max_degree = max(gto.angular_momentum)
-    power_blocks = [
-        cartesian.generate_cartesian_powers(l) for l in gto.angular_momentum
-    ]
+    power_blocks = [generate_cartesian_powers(l) for l in gto.angular_momentum]
     power_block_sizes = np.array([powers.shape[0] for powers in power_blocks])
 
     # The cartesian powers are static and can be stored as a numpy array.

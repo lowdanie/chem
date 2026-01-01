@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 import numpy as np
 
-from slaterform import types
+import slaterform.types as types
 
 
 @register_pytree_node_class

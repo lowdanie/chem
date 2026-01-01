@@ -3,11 +3,11 @@ import numpy as np
 import numpy.typing as npt
 
 from slaterform.analysis import grid as grid_mod
-from slaterform.structure import molecule
+from slaterform.structure.molecule import Molecule
 
 
 def write_cube_data(
-    mol: molecule.Molecule,
+    mol: Molecule,
     grid: grid_mod.RegularGrid,
     data: npt.NDArray[np.float64],
     description: str,

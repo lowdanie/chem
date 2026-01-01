@@ -8,25 +8,23 @@ from jax import numpy as jnp
 import numpy as np
 
 
-from slaterform.integrals import gaussian
-from slaterform.integrals import overlap
-from slaterform.integrals import kinetic
-from slaterform.integrals import coulomb
-from slaterform.structure import batched_basis
-from slaterform.basis import basis_block
-from slaterform.basis import operators
-from slaterform.jax_utils import batching
-from slaterform.jax_utils import scatter
+from slaterform.integrals.gaussian import GaussianBasis3d
+from slaterform.integrals.overlap import overlap_3d
+from slaterform.integrals.kinetic import kinetic_3d
+from slaterform.integrals.coulomb import one_electron as coulomb_one_electron
+from slaterform.structure.batched_basis import BatchedBasis
+from slaterform.basis.basis_block import BasisBlock
+from slaterform.basis.operators import OneElectronOperator, one_electron_matrix
+from slaterform.jax_utils.batching import BatchedTreeTuples
+from slaterform.jax_utils.scatter import add_tiles_2d
 
-_BlockOperator = Callable[
-    [basis_block.BasisBlock, basis_block.BasisBlock], jax.Array
-]
+_BlockOperator = Callable[[BasisBlock, BasisBlock], jax.Array]
 
 
 class _GroupParams(NamedTuple):
     # The stacked basis blocks for the group of batches.
     # Length: 2
-    stacks: tuple[basis_block.BasisBlock, ...]
+    stacks: tuple[BasisBlock, ...]
 
     # The starting indices of each basis block in the stack with respect to
     # the full basis set.
@@ -62,7 +60,7 @@ def _batch_step(
     # shape: (batch_size, n_i_basis, n_j_basis)
     integral_matrix = params.batch_operator(i_block, j_block)
 
-    new_matrix = scatter.add_tiles_2d(
+    new_matrix = add_tiles_2d(
         matrix=matrix,
         tiles=integral_matrix,
         row_starts=i_start,
@@ -75,7 +73,7 @@ def _batch_step(
         jnp.float32
     )
 
-    new_matrix = scatter.add_tiles_2d(
+    new_matrix = add_tiles_2d(
         matrix=new_matrix,
         tiles=integral_matrix.transpose((0, 2, 1)),
         row_starts=j_start,
@@ -88,7 +86,7 @@ def _batch_step(
 
 def _process_batched_tuples(
     matrix: jax.Array,
-    batched_tuples: batching.BatchedTreeTuples,
+    batched_tuples: BatchedTreeTuples,
     block_starts: jax.Array,
     batch_operator: _BlockOperator,
 ) -> jax.Array:
@@ -112,13 +110,13 @@ def _process_batched_tuples(
 
 
 def _one_electron_matrix(
-    basis: batched_basis.BatchedBasis,
-    operator: operators.OneElectronOperator,
+    basis: BatchedBasis,
+    operator: OneElectronOperator,
 ) -> jax.Array:
     n_basis = basis.n_basis
     matrix = jnp.zeros((n_basis, n_basis), dtype=jnp.float64)
     batch_operator = jax.vmap(
-        lambda b1, b2: operators.one_electron_matrix(b1, b2, operator)
+        lambda b1, b2: one_electron_matrix(b1, b2, operator)
     )
 
     for batched_tuples in basis.batches_1e:
@@ -133,7 +131,7 @@ def _one_electron_matrix(
 
 
 def overlap_matrix(
-    batched_mol_basis: batched_basis.BatchedBasis,
+    batched_mol_basis: BatchedBasis,
 ) -> jax.Array:
     """Computes the overlap matrix S
 
@@ -142,7 +140,7 @@ def overlap_matrix(
     """
     S = _one_electron_matrix(
         batched_mol_basis,
-        overlap.overlap_3d,
+        overlap_3d,
     )
 
     return S
@@ -151,11 +149,11 @@ def overlap_matrix(
 def _nuclear_operator(
     atomic_positions: jax.Array,
     atomic_charges: jax.Array,
-    g1: gaussian.GaussianBasis3d,
-    g2: gaussian.GaussianBasis3d,
+    g1: GaussianBasis3d,
+    g2: GaussianBasis3d,
 ) -> jax.Array:
     tensors = jax.vmap(
-        lambda R, Z: -Z * coulomb.one_electron(g1, g2, R),
+        lambda R, Z: -Z * coulomb_one_electron(g1, g2, R),
         in_axes=(0, 0),
     )(atomic_positions, atomic_charges)
 
@@ -163,7 +161,7 @@ def _nuclear_operator(
 
 
 def nuclear_attraction_matrix(
-    basis: batched_basis.BatchedBasis,
+    basis: BatchedBasis,
 ) -> jax.Array:
     """Computes the nuclear attraction matrix V
 
@@ -180,18 +178,18 @@ def nuclear_attraction_matrix(
 
 
 def kinetic_matrix(
-    basis: batched_basis.BatchedBasis,
+    basis: BatchedBasis,
 ) -> jax.Array:
     """Computes the kinetic energy matrix T
 
     Returns:
         A numpy array of shape (N, N) where N=mol_basis.n_basis
     """
-    return -0.5 * _one_electron_matrix(basis, kinetic.kinetic_3d)
+    return -0.5 * _one_electron_matrix(basis, kinetic_3d)
 
 
 def core_hamiltonian_matrix(
-    basis: batched_basis.BatchedBasis,
+    basis: BatchedBasis,
 ) -> jax.Array:
     """Computes the core Hamiltonian matrix H = T + V
 

@@ -2,9 +2,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from slaterform import types
-from slaterform.integrals import overlap
-from slaterform.integrals import gaussian
+import slaterform.types as types
+from slaterform.integrals.overlap import overlap_3d
+from slaterform.integrals.gaussian import GaussianBasis3d
 
 
 def _generate_cartesian_powers(l: int) -> np.ndarray:
@@ -62,12 +62,12 @@ def compute_normalization_constants(
         A numpy array of shape (N,) containing the L^2 norms of each
         primitive Gaussian basis function.
     """
-    g = gaussian.GaussianBasis3d(
+    g = GaussianBasis3d(
         max_degree=max_degree,
         exponent=a,
         center=jnp.zeros(3, dtype=a.dtype),
     )
 
-    S = overlap.overlap_3d(g, g)  # shape (max_degree+1,) * 6
+    S = overlap_3d(g, g)  # shape (max_degree+1,) * 6
     ix, iy, iz = powers.T
     return 1.0 / jnp.sqrt(S[ix, iy, iz, ix, iy, iz])

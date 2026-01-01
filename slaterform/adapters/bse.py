@@ -1,16 +1,16 @@
 import numpy as np
 import basis_set_exchange as bse
 
-from slaterform.basis import contracted_gto
+from slaterform.basis.contracted_gto import ContractedGTO, PrimitiveType
 
 _STR_TO_PRIMITIVE_TYPE = {
-    "gto": contracted_gto.PrimitiveType.CARTESIAN,
-    "gto_cartesian": contracted_gto.PrimitiveType.CARTESIAN,
-    "gto_spherical": contracted_gto.PrimitiveType.SPHERICAL,
+    "gto": PrimitiveType.CARTESIAN,
+    "gto_cartesian": PrimitiveType.CARTESIAN,
+    "gto_spherical": PrimitiveType.SPHERICAL,
 }
 
 
-def load(basis_name: str, element: int) -> list[contracted_gto.ContractedGTO]:
+def load(basis_name: str, element: int) -> list[ContractedGTO]:
     """Loads contracted GTOs for a given element from the Basis Set Exchange."""
     bse_data = bse.get_basis(basis_name, elements=[element])
     electron_shells = bse_data["elements"][str(element)]["electron_shells"]
@@ -22,7 +22,7 @@ def load(basis_name: str, element: int) -> list[contracted_gto.ContractedGTO]:
             angular_momentum *= len(shell["coefficients"])
 
         contracted_gtos.append(
-            contracted_gto.ContractedGTO(
+            ContractedGTO(
                 primitive_type=_STR_TO_PRIMITIVE_TYPE[shell["function_type"]],
                 angular_momentum=tuple(angular_momentum),
                 exponents=np.array(shell["exponents"], dtype=np.float64),

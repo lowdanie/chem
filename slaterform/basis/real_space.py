@@ -1,9 +1,9 @@
 import numpy as np
 
-from slaterform.basis import basis_block
+from slaterform.basis.basis_block import BasisBlock
 
 
-def evaluate(block: basis_block.BasisBlock, points: np.ndarray) -> np.ndarray:
+def evaluate(block: BasisBlock, points: np.ndarray) -> np.ndarray:
     """Evaluate the basis functions in a basis block at given points.
 
     Args:

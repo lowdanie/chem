@@ -2,26 +2,21 @@ from typing import Callable, NamedTuple
 import functools
 
 import jax
-from jax import jit
 from jax import numpy as jnp
-import numpy as np
 
-from slaterform.basis import operators
-from slaterform.basis import basis_block
-from slaterform.jax_utils import batching
-from slaterform.jax_utils import gather
-from slaterform.jax_utils import scatter
-from slaterform.integrals import coulomb
+from slaterform.basis.basis_block import BasisBlock
+from slaterform.basis.operators import (
+    two_electron_matrix as two_electron_matrix_op,
+)
+from slaterform.jax_utils.batching import BatchedTreeTuples
+from slaterform.jax_utils.gather import extract_tiles_2d
+from slaterform.jax_utils.scatter import add_tiles_2d
+from slaterform.integrals.coulomb import two_electron
 from slaterform.symmetry import quartet as quartet_lib
-from slaterform.structure import batched_basis
+from slaterform.structure.batched_basis import BatchedBasis
 
 _BlockOperator = Callable[
-    [
-        basis_block.BasisBlock,
-        basis_block.BasisBlock,
-        basis_block.BasisBlock,
-        basis_block.BasisBlock,
-    ],
+    [BasisBlock, BasisBlock, BasisBlock, BasisBlock],
     jax.Array,
 ]
 
@@ -33,7 +28,7 @@ class _GroupParams(NamedTuple):
 
     # The stacked basis blocks for the group of batches.
     # Length: 4
-    stacks: tuple[basis_block.BasisBlock, ...]
+    stacks: tuple[BasisBlock, ...]
 
     # The starting indices of each basis block in the stack with respect to
     # the full basis set.
@@ -94,7 +89,7 @@ def _batch_step(
         _, _, n_j, n_k, n_l = sigma_integrals.shape
 
         # Coulomb update: G_ij += (ij|kl) * P_lk
-        P_lk = gather.extract_tiles_2d(
+        P_lk = extract_tiles_2d(
             matrix=params.P,
             row_starts=starts_l,
             col_starts=starts_k,
@@ -102,7 +97,7 @@ def _batch_step(
             n_cols=n_k,
         )
         J_ij = jnp.einsum("bijkl,blk->bij", sigma_integrals, P_lk)
-        G = scatter.add_tiles_2d(
+        G = add_tiles_2d(
             matrix=G,
             tiles=J_ij,
             row_starts=starts_i,
@@ -111,7 +106,7 @@ def _batch_step(
         )
 
         # Exchange update: G_il -= 0.5 * (ij|kl) * P_jk
-        P_jk = gather.extract_tiles_2d(
+        P_jk = extract_tiles_2d(
             matrix=params.P,
             row_starts=starts_j,
             col_starts=starts_k,
@@ -119,7 +114,7 @@ def _batch_step(
             n_cols=n_k,
         )
         K_il = jnp.einsum("bijkl,bjk->bil", sigma_integrals, P_jk)
-        G = scatter.add_tiles_2d(
+        G = add_tiles_2d(
             matrix=G,
             tiles=-0.5 * K_il,
             row_starts=starts_i,
@@ -133,7 +128,7 @@ def _batch_step(
 def _process_batched_tuples(
     G: jax.Array,
     P: jax.Array,
-    batched_tuples: batching.BatchedTreeTuples,
+    batched_tuples: BatchedTreeTuples,
     global_block_starts: jax.Array,
     batch_operator: _BlockOperator,
 ) -> jax.Array:
@@ -154,7 +149,7 @@ def _process_batched_tuples(
 
 
 def two_electron_matrix(
-    basis: batched_basis.BatchedBasis,
+    basis: BatchedBasis,
     P: jax.Array,
 ) -> jax.Array:
     """Compute the two-electron contribution to the Fock matrix.
@@ -168,9 +163,7 @@ def two_electron_matrix(
     n_basis = basis.n_basis
     G = jnp.zeros((n_basis, n_basis), dtype=jnp.float64)
     batch_operator = jax.vmap(
-        functools.partial(
-            operators.two_electron_matrix, operator=coulomb.two_electron
-        )
+        functools.partial(two_electron_matrix_op, operator=two_electron)
     )
 
     for batched_tuples in basis.batches_2e:

@@ -7,14 +7,22 @@ from jax import numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
 
-from slaterform.hartree_fock import density
-from slaterform.hartree_fock import fock
-from slaterform.hartree_fock import one_electron
-from slaterform.hartree_fock import roothaan
-from slaterform.structure import batched_basis
-from slaterform.structure import molecule as molecule_lib
-from slaterform.structure import nuclear
-from slaterform import types
+import slaterform.types as types
+from slaterform.hartree_fock.density import closed_shell_matrix
+from slaterform.hartree_fock.fock import two_electron_matrix, electronic_energy
+from slaterform.hartree_fock.one_electron import (
+    core_hamiltonian_matrix,
+    overlap_matrix,
+)
+from slaterform.hartree_fock.roothaan import (
+    orthogonalize_basis,
+    solve as solve_roothaan,
+)
+from slaterform.structure.batched_basis import BatchedBasis
+from slaterform.structure.molecule import Molecule
+from slaterform.structure.nuclear import (
+    repulsion_energy as nuclear_repulsion_energy,
+)
 
 SolverCallback = Callable[["State"], None]
 
@@ -56,7 +64,7 @@ class Options:
 @register_pytree_node_class
 @dataclasses.dataclass
 class Context:
-    basis: batched_basis.BatchedBasis
+    basis: BatchedBasis
 
     nuclear_energy: jax.Array
 
@@ -140,7 +148,7 @@ class Result:
     total_energy: jax.Array
 
     # The basis used in the calculation.
-    basis: batched_basis.BatchedBasis
+    basis: BatchedBasis
 
     # Fock matrix eigenvalues.
     # shape (n_basis, )
@@ -174,11 +182,11 @@ class Result:
         return cls(*children)
 
 
-def build_initial_state(basis: batched_basis.BatchedBasis) -> State:
+def build_initial_state(basis: BatchedBasis) -> State:
     n_basis = basis.n_basis
-    S = one_electron.overlap_matrix(basis)
-    H_core = one_electron.core_hamiltonian_matrix(basis)
-    nuclear_energy = nuclear.repulsion_energy(basis.atoms)
+    S = overlap_matrix(basis)
+    H_core = core_hamiltonian_matrix(basis)
+    nuclear_energy = nuclear_repulsion_energy(basis.atoms)
 
     return State(
         iteration=jnp.array(0, dtype=jnp.int32),
@@ -186,7 +194,7 @@ def build_initial_state(basis: batched_basis.BatchedBasis) -> State:
             basis=basis,
             nuclear_energy=nuclear_energy,
             S=S,
-            X=roothaan.orthogonalize_basis(S),
+            X=orthogonalize_basis(S),
             H_core=H_core,
         ),
         C=jnp.zeros((n_basis, n_basis), dtype=jnp.float64),
@@ -216,15 +224,15 @@ def build_result(state: State, options: Options) -> Result:
 def scf_step(state: State) -> State:
     # Solve for new orbital coefficients and density.
     # C has shape (n_basis, n_basis)
-    orbital_energies, C = roothaan.solve(state.F, state.context.X)
+    orbital_energies, C = solve_roothaan(state.F, state.context.X)
     # shape (n_basis, n_basis)
-    P = density.closed_shell_matrix(C, state.context.basis.n_electrons)
+    P = closed_shell_matrix(C, state.context.basis.n_electrons)
 
     # Compute the Fock matrix and energy for the new density P.
     # shape (n_basis, n_basis)
-    G = fock.two_electron_matrix(state.context.basis, P)
+    G = two_electron_matrix(state.context.basis, P)
     F = state.context.H_core + G  # shape (n_basis, n_basis)
-    electronic_energy = fock.electronic_energy(state.context.H_core, F, P)
+    electronic_energy_val = electronic_energy(state.context.H_core, F, P)
 
     return State(
         iteration=state.iteration + 1,
@@ -232,20 +240,20 @@ def scf_step(state: State) -> State:
         C=C,
         P=P,
         F=F,
-        electronic_energy=electronic_energy,
-        total_energy=electronic_energy + state.context.nuclear_energy,
+        electronic_energy=electronic_energy_val,
+        total_energy=electronic_energy_val + state.context.nuclear_energy,
         orbital_energies=orbital_energies,
         delta_P=jnp.linalg.norm(P - state.P),
     )
 
 
 def _build_basis(
-    system: batched_basis.BatchedBasis | molecule_lib.Molecule,
-) -> batched_basis.BatchedBasis:
-    if isinstance(system, batched_basis.BatchedBasis):
+    system: BatchedBasis | Molecule,
+) -> BatchedBasis:
+    if isinstance(system, BatchedBasis):
         return system
-    elif isinstance(system, molecule_lib.Molecule):
-        return batched_basis.BatchedBasis.from_molecule(system)
+    elif isinstance(system, Molecule):
+        return BatchedBasis.from_molecule(system)
     else:
         raise TypeError(
             f"Expected input of type BatchedBasis or Molecule, got {type(system)}"
@@ -282,7 +290,7 @@ def _perform_step(state: State, options: Options) -> State:
 
 
 def solve(
-    system: batched_basis.BatchedBasis | molecule_lib.Molecule,
+    system: BatchedBasis | Molecule,
     options: Options = Options(),
 ) -> Result:
     """Performs the self-consistent field (SCF) procedure to compute the

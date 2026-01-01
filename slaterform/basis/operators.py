@@ -4,20 +4,17 @@ from typing import Callable, NamedTuple
 import functools
 
 import jax
-from jax import jit
 import jax.numpy as jnp
 import numpy as np
 
-from slaterform.basis import basis_block
+from slaterform.basis.basis_block import BasisBlock
 from slaterform.jax_utils import broadcasting
-from slaterform.integrals import gaussian
+from slaterform.integrals.gaussian import GaussianBasis3d
 
 # A one-electron operator between two BasisBlocks.
 # The returned array has shape (d1+1, d1+1, d1+1, d2+1, d2+1, d2+1)
 # where d1 = basis1.max_degree and d2 = basis2.max_degree.
-OneElectronOperator = Callable[
-    [gaussian.GaussianBasis3d, gaussian.GaussianBasis3d], jax.Array
-]
+OneElectronOperator = Callable[[GaussianBasis3d, GaussianBasis3d], jax.Array]
 
 # A two-electron operator between four BasisBlocks.
 # The returned array has shape
@@ -28,10 +25,10 @@ OneElectronOperator = Callable[
 # where di = the max_degree in basisi.cartesian_powers for i = 1, 2, 3, 4.
 TwoElectronOperator = Callable[
     [
-        gaussian.GaussianBasis3d,
-        gaussian.GaussianBasis3d,
-        gaussian.GaussianBasis3d,
-        gaussian.GaussianBasis3d,
+        GaussianBasis3d,
+        GaussianBasis3d,
+        GaussianBasis3d,
+        GaussianBasis3d,
     ],
     jax.Array,
 ]
@@ -57,9 +54,7 @@ def _compute_primitive_integral(
         A jax array of shape (n_cart1, n_cart2)
     """
     gaussian_args = [
-        gaussian.GaussianBasis3d(
-            params.max_degrees[i], exponents[i], params.centers[i]
-        )
+        GaussianBasis3d(params.max_degrees[i], exponents[i], params.centers[i])
         for i in range(len(exponents))
     ]
 
@@ -68,8 +63,8 @@ def _compute_primitive_integral(
 
 
 def one_electron_matrix(
-    block1: basis_block.BasisBlock,
-    block2: basis_block.BasisBlock,
+    block1: BasisBlock,
+    block2: BasisBlock,
     operator: OneElectronOperator,
 ) -> jax.Array:
     """Computes the overlap matrix between two BasisBlocks.
@@ -137,10 +132,10 @@ def one_electron_matrix(
 
 
 def two_electron_matrix(
-    block1: basis_block.BasisBlock,
-    block2: basis_block.BasisBlock,
-    block3: basis_block.BasisBlock,
-    block4: basis_block.BasisBlock,
+    block1: BasisBlock,
+    block2: BasisBlock,
+    block3: BasisBlock,
+    block4: BasisBlock,
     operator: TwoElectronOperator,
 ) -> jax.Array:
     """Computes the matrix elements for a two-electron operator.

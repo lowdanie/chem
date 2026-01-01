@@ -3,7 +3,7 @@ import numpy as np
 import numpy.typing as npt
 
 
-from slaterform.structure import molecule
+from slaterform.structure.molecule import Molecule
 
 
 @dataclasses.dataclass
@@ -37,7 +37,7 @@ def generate_points(grid: RegularGrid) -> np.ndarray:
 
 
 def build_bounding_grid(
-    mol: molecule.Molecule, padding: float = 3.0, spacing: float = 0.2
+    mol: Molecule, padding: float = 3.0, spacing: float = 0.2
 ) -> RegularGrid:
     """Build a bounding regular grid around the given molecule.
 
