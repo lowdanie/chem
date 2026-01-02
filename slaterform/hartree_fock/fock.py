@@ -1,4 +1,4 @@
-from typing import Callable, NamedTuple
+from typing import Callable, NamedTuple, Optional
 import functools
 
 import jax
@@ -22,10 +22,6 @@ _BlockOperator = Callable[
 
 
 class _GroupParams(NamedTuple):
-    # The density matrix.
-    # Shape: (n_basis, n_basis)
-    P: jax.Array
-
     # The stacked basis blocks for the group of batches.
     # Length: 4
     stacks: tuple[BasisBlock, ...]
@@ -38,41 +34,60 @@ class _GroupParams(NamedTuple):
     # A block operator that can operate on basis blocks with a batch dimension.
     batch_operator: _BlockOperator
 
+    # A density matrix.
+    # Shape: (n_basis, n_basis)
+    P: Optional[jax.Array] = None
+
 
 class _BatchData(NamedTuple):
     tuple_indices: jax.Array  # Shape (batch_size, 4)
     mask: jax.Array  # Shape (batch_size,)
 
 
-def _batch_step(
-    params: _GroupParams, G: jax.Array, batch_data: _BatchData
-) -> tuple[jax.Array, None]:
-    # Indices of the blocks in each quartet in the batch.
-    # Shape: (batch_size, 4)
+_BatchStep = Callable[
+    [_GroupParams, jax.Array, _BatchData], tuple[jax.Array, None]
+]
+
+
+def _compute_batch_integrals(
+    params: _GroupParams, batch_data: _BatchData
+) -> tuple[jax.Array, quartet_lib.BatchedQuartet, jax.Array]:
+    """Computes integrals for a batch.
+
+    Returns:
+        integrals: A jax array of shape (batch_size, Ni, Nj, Nk, Nl)
+        block_starts: A BatchedQuartet of shape (batch_size, )
+        scaled_mask: A jax array of shape (batch_size, 1, 1, 1, 1)
+    """
     idx = batch_data.tuple_indices
 
-    # Gather the basis blocks for each quartet in the batch.
-    # Length 4. Each is a stacked BasisBlock with shape (batch_size, ...)
+    # Gather blocks
     blocks = tuple(
         jax.tree.map(lambda x: x[idx[:, k]], params.stacks[k]) for k in range(4)
     )
 
-    # Get the starting indices of each block in the full basis set.
-    # Length: 4. Each has shape (batch_size,)
+    # Get start indices
     block_starts = quartet_lib.BatchedQuartet(
         params.stack_starts[k][idx[:, k]] for k in range(4)
     )
 
-    # Compute the two-electron integrals for the batch.
-    # shape: (batch_size, n_i_basis, n_j_basis, n_k_basis, n_l_basis)
+    # Compute integrals (Batch, Ni, Nj, Nk, Nl)
     integrals = params.batch_operator(*blocks)
 
-    # Scale the mask by the inverse of the stabilizer norm to account
-    # for double counting.
-    # Shape: (batch_size, 1, 1, 1, 1)
+    # Compute symmetry mask
     stabilizer_norm = quartet_lib.compute_stabilizer_norm(block_starts)
     scaled_mask = batch_data.mask / stabilizer_norm.astype(integrals.dtype)
     scaled_mask = scaled_mask[:, None, None, None, None]
+
+    return integrals, block_starts, scaled_mask
+
+
+def _matrix_step(
+    params: _GroupParams, G: jax.Array, batch_data: _BatchData
+) -> tuple[jax.Array, None]:
+    integrals, block_starts, scaled_mask = _compute_batch_integrals(
+        params, batch_data
+    )
 
     for sigma in quartet_lib.get_symmetries():
         # Permute integrals and apply the scaled mask.
@@ -101,7 +116,6 @@ def _batch_step(
             target=G,
             tiles=J_ij,
             starts=(starts_i, starts_j),
-            mask=jnp.ones_like(batch_data.mask),
         )
 
         # Exchange update: G_il -= 0.5 * (ij|kl) * P_jk
@@ -117,33 +131,55 @@ def _batch_step(
             target=G,
             tiles=-0.5 * K_il,
             starts=(starts_i, starts_l),
-            mask=jnp.ones_like(batch_data.mask),
         )
 
     return G, None
 
 
+def _integrals_step(
+    params: _GroupParams, V: jax.Array, batch_data: _BatchData
+) -> tuple[jax.Array, None]:
+    """Computes contributions to the full two-electron integral tensor."""
+    integrals, block_starts, scaled_mask = _compute_batch_integrals(
+        params, batch_data
+    )
+
+    for sigma in quartet_lib.get_symmetries():
+        # Permute integrals
+        batch_sigma = (0,) + tuple(s + 1 for s in sigma)
+        sigma_integrals = jnp.transpose(integrals, batch_sigma) * scaled_mask
+
+        # Permute starts
+        sigma_starts = quartet_lib.apply_permutation(sigma, block_starts)
+
+        # Update the integrals tensor.
+        V = add_tiles(V, sigma_integrals, sigma_starts)
+
+    return V, None
+
+
 def _process_batched_tuples(
-    G: jax.Array,
-    P: jax.Array,
+    accumulator: jax.Array,
     batched_tuples: BatchedTreeTuples,
     global_block_starts: jax.Array,
     batch_operator: _BlockOperator,
+    step_fn: _BatchStep,
+    P: Optional[jax.Array] = None,
 ) -> jax.Array:
     """Compute contributions to the two-electron matrix from batched tuples."""
     stack_starts = tuple(
         global_block_starts[idx] for idx in batched_tuples.global_tree_indices
     )
     params = _GroupParams(
-        P, batched_tuples.stacks, stack_starts, batch_operator
+        batched_tuples.stacks, stack_starts, batch_operator, P
     )
     batch_data = _BatchData(
         batched_tuples.tuple_indices, batched_tuples.padding_mask
     )
-    scan_fn = functools.partial(_batch_step, params)
-    new_G, _ = jax.lax.scan(scan_fn, G, batch_data)
+    scan_fn = functools.partial(step_fn, params)
+    new_accumulator, _ = jax.lax.scan(scan_fn, accumulator, batch_data)
 
-    return new_G
+    return new_accumulator
 
 
 def two_electron_matrix(
@@ -167,12 +203,63 @@ def two_electron_matrix(
     for batched_tuples in basis.batches_2e:
         G = _process_batched_tuples(
             G,
-            P,
             batched_tuples,
             jnp.asarray(basis.block_starts),
             batch_operator,
+            _matrix_step,
+            P,
         )
 
+    return G
+
+
+def two_electron_integrals(
+    basis: BatchedBasis,
+) -> jax.Array:
+    """Compute all two-electron integrals.
+
+    Args:
+        basis: The batched molecular basis.
+    Returns:
+        The two-electron integral tensor.
+        Shape: (n_basis, n_basis, n_basis, n_basis).
+    """
+    n_basis = basis.n_basis
+    V = jnp.zeros((n_basis,) * 4, dtype=jnp.float64)
+    batch_operator = jax.vmap(
+        functools.partial(two_electron_matrix_op, operator=two_electron)
+    )
+
+    for batched_tuples in basis.batches_2e:
+        V = _process_batched_tuples(
+            V,
+            batched_tuples,
+            jnp.asarray(basis.block_starts),
+            batch_operator,
+            _integrals_step,
+        )
+
+    return V
+
+
+def two_electron_matrix_from_integrals(V: jax.Array, P: jax.Array) -> jax.Array:
+    """Compute the two-electron contribution to the Fock matrix from the
+    two-electron integral tensor.
+
+    Args:
+        V: The two-electron integral tensor.
+            Shape: (n_basis, n_basis, n_basis, n_basis).
+        P: The closed shell density matrix. shape: (n_basis, n_basis)
+    Returns:
+        The two-electron Fock matrix. Shape: (n_basis, n_basis).
+    """
+    # Coulomb contribution: G_ij += sum_{kl} (ij|kl) * P_lk
+    J = jnp.einsum("ijkl,lk->ij", V, P)
+
+    # Exchange contribution: G_ij -= 0.5 * (il|kj) * P_lk
+    K = jnp.einsum("ilkj,lk->ij", V, P)
+
+    G = J - 0.5 * K
     return G
 
 

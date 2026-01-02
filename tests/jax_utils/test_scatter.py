@@ -1,6 +1,7 @@
 import dataclasses
 import pytest
 from collections.abc import Sequence
+from typing import Optional
 
 import jax
 from jax import numpy as jnp
@@ -14,7 +15,7 @@ class _AddTilesTestCase:
     target: jax.Array
     tiles: jax.Array
     starts: Sequence[jax.Array]
-    mask: jax.Array
+    mask: Optional[jax.Array]
     expected: jax.Array
 
 
@@ -88,7 +89,7 @@ class _AddTilesTestCase:
                 jnp.array([0, 0]),
                 jnp.array([0, 0]),
             ],
-            mask=jnp.array([1, 1]),
+            mask=None,
             expected=jnp.array(
                 [
                     [3, 3, 0, 0],

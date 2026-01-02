@@ -1,4 +1,6 @@
 from collections.abc import Sequence
+from typing import Optional
+
 import jax
 from jax import numpy as jnp
 
@@ -45,7 +47,7 @@ def add_tiles(
     target: jax.Array,
     tiles: jax.Array,
     starts: Sequence[jax.Array],
-    mask: jax.Array,
+    mask: Optional[jax.Array] = None,
 ) -> jax.Array:
     """Adds a batch of tiles into a target array at specified offsets.
 
@@ -69,8 +71,9 @@ def add_tiles(
         )
 
     # Apply the mask. Zero out values for padded batches.
-    mask_shape = (n_tiles,) + (1,) * n_dim
-    tiles = tiles * mask.reshape(mask_shape)
+    if mask is not None:
+        mask_shape = (n_tiles,) + (1,) * n_dim
+        tiles = tiles * mask.reshape(mask_shape)
 
     # Create a grid of target tile indices: (n_tiles, d1, d2, ...)
     indices = [

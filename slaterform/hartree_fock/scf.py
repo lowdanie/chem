@@ -9,7 +9,12 @@ from jax.tree_util import register_pytree_node_class
 
 import slaterform.types as types
 from slaterform.hartree_fock.density import closed_shell_matrix
-from slaterform.hartree_fock.fock import two_electron_matrix, electronic_energy
+from slaterform.hartree_fock.fock import (
+    two_electron_matrix,
+    two_electron_integrals,
+    two_electron_matrix_from_integrals,
+    electronic_energy,
+)
 from slaterform.hartree_fock.one_electron import (
     core_hamiltonian_matrix,
     overlap_matrix,

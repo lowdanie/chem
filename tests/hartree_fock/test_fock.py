@@ -51,15 +51,15 @@ _TEST_P = np.array(
 )
 
 # Computed via _brute_force_two_electron_matrix(_TEST_MOLECULE, _TEST_P)
-_EXPECTED_G = np.array(
-    [
-        [0.8258334, 0.22539037, -0.04605533, -0.05555967, -0.16525297],
-        [0.22539037, 0.08320239, -0.01676027, -0.02073222, -0.02083503],
-        [-0.04605533, -0.01676027, 0.18367568, -0.00732045, -0.00448176],
-        [-0.05555967, -0.02073222, -0.00732045, 0.172695, -0.0096359],
-        [-0.16525297, -0.02083503, -0.00448176, -0.0096359, 0.18568163],
-    ]
-)
+# _EXPECTED_G = np.array(
+#     [
+#         [0.8258334, 0.22539037, -0.04605533, -0.05555967, -0.16525297],
+#         [0.22539037, 0.08320239, -0.01676027, -0.02073222, -0.02083503],
+#         [-0.04605533, -0.01676027, 0.18367568, -0.00732045, -0.00448176],
+#         [-0.05555967, -0.02073222, -0.00732045, 0.172695, -0.0096359],
+#         [-0.16525297, -0.02083503, -0.00448176, -0.0096359, 0.18568163],
+#     ]
+# )
 
 
 def _build_slices(block_sizes: Sequence[int]) -> list[slice]:
@@ -71,9 +71,7 @@ def _build_slices(block_sizes: Sequence[int]) -> list[slice]:
     return slices
 
 
-def _brute_force_two_electron_matrix(
-    basis: sf.BatchedBasis, P: np.ndarray
-) -> np.ndarray:
+def _two_electron_integrals(basis: sf.BatchedBasis) -> np.ndarray:
     n_basis = basis.n_basis
     blocks = basis.basis_blocks
     slices = _build_slices([block.n_basis for block in blocks])
@@ -90,6 +88,14 @@ def _brute_force_two_electron_matrix(
         V_block = kernel(blocks[i], blocks[j], blocks[k], blocks[l])
         V[slices[i], slices[j], slices[k], slices[l]] = V_block
 
+    return V
+
+
+def _two_electron_matrix_from_integrals(
+    V: np.ndarray, P: np.ndarray
+) -> np.ndarray:
+    n_basis = V.shape[0]
+
     # Compute G using the definition.
     # G_{ij} = sum_{kl} P_{kl} ( (ij|lk) - 0.5 (ik|lj) )
     G = np.zeros((n_basis, n_basis), dtype=np.float64)
@@ -99,14 +105,35 @@ def _brute_force_two_electron_matrix(
     return G
 
 
-def test_two_electron_matrix(
-    mol=_TEST_MOLECULE, P=_TEST_P, expected=_EXPECTED_G
-):
+_TEST_V = _two_electron_integrals(sf.BatchedBasis.from_molecule(_TEST_MOLECULE))
+_TEST_G = _two_electron_matrix_from_integrals(_TEST_V, _TEST_P)
+
+
+def test_two_electron_matrix(mol=_TEST_MOLECULE, P=_TEST_P, expected=_TEST_G):
     basis = sf.BatchedBasis.from_molecule(mol)
     P_jax = jnp.asarray(P)
 
     G_actual = jit(sf.hartree_fock.two_electron_matrix)(basis, P_jax)
 
+    np.testing.assert_allclose(G_actual, expected, rtol=1e-7, atol=1e-7)
+
+
+def test_two_electron_integrals(mol=_TEST_MOLECULE, expected=_TEST_V):
+    basis = sf.BatchedBasis.from_molecule(mol)
+
+    V_actual = jit(sf.hartree_fock.two_electron_integrals)(basis)
+
+    np.testing.assert_allclose(V_actual, expected, rtol=1e-7, atol=1e-7)
+
+
+def test_two_electron_matrix_from_integrals(
+    V=_TEST_V, P=_TEST_P, expected=_TEST_G
+):
+    V_jax = jnp.asarray(V)
+    P_jax = jnp.asarray(P)
+    G_actual = jit(sf.hartree_fock.two_electron_matrix_from_integrals)(
+        V_jax, P_jax
+    )
     np.testing.assert_allclose(G_actual, expected, rtol=1e-7, atol=1e-7)
 
 
