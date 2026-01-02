@@ -1,6 +1,7 @@
 import dataclasses
 from typing import Callable, Optional
 import functools
+import enum
 
 import jax
 from jax import numpy as jnp
@@ -32,6 +33,18 @@ from slaterform.structure.nuclear import (
 SolverCallback = Callable[["State"], None]
 
 
+class IntegralStrategy(enum.IntEnum):
+    DIRECT = 0  # Re-computes integrals every step.
+    CACHED = 1  # Pre-computes O(N^4) tensor once.
+
+
+class ExecutionMode(enum.IntEnum):
+    CONVERGENCE = (
+        0  # Checks threshold, variable iterations. Not differentiable.
+    )
+    FIXED = 1  # Fixed number of iterations. Differentiable.
+
+
 @register_pytree_node_class
 @dataclasses.dataclass
 class CallbackOptions:
@@ -60,8 +73,12 @@ class CallbackOptions:
 @register_pytree_node_class
 @dataclasses.dataclass
 class Options:
-    max_iterations: types.IntScalar = 50
+    max_iterations: int = 50  # Acts as 'n_steps' in FIXED mode
+    execution_mode: ExecutionMode = ExecutionMode.CONVERGENCE
+    integral_strategy: IntegralStrategy = IntegralStrategy.CACHED
+
     convergence_threshold: types.Scalar = 1e-6
+    perturbation: types.Scalar = 0.0
     callback: CallbackOptions = dataclasses.field(
         default_factory=CallbackOptions
     )
@@ -71,38 +88,39 @@ class Options:
 
     def tree_flatten(self):
         children = (
-            self.max_iterations,
             self.convergence_threshold,
+            self.perturbation,
             self.callback,
         )
-        aux_data = None
+        aux_data = (
+            self.max_iterations,
+            self.execution_mode,
+            self.integral_strategy,
+        )
         return children, aux_data
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         return cls(
-            *children,
+            max_iterations=aux_data[0],
+            execution_mode=aux_data[1],
+            integral_strategy=aux_data[2],
+            convergence_threshold=children[0],
+            perturbation=children[1],
+            callback=children[2],
         )
 
-
-@register_pytree_node_class
-@dataclasses.dataclass
-class FixedOptions:
-    n_steps: int = 20
-    callback: CallbackOptions = dataclasses.field(
-        default_factory=CallbackOptions
-    )
-
-    def tree_flatten(self):
-        children = (self.callback,)
-        aux_data = (self.n_steps,)
-        return children, aux_data
-
     @classmethod
-    def tree_unflatten(cls, aux_data, children):
+    def differentiable(
+        cls, steps=25, callback: CallbackOptions = CallbackOptions()
+    ) -> "Options":
+        """Helper for differentiable optimization."""
         return cls(
-            n_steps=aux_data[0],
-            callback=children[0],
+            max_iterations=steps,
+            execution_mode=ExecutionMode.FIXED,
+            integral_strategy=IntegralStrategy.CACHED,
+            perturbation=1e-10,  # Safety for gradients
+            callback=callback,
         )
 
 
@@ -122,6 +140,11 @@ class Context:
     # Core Hamiltonian matrix. shape (n_basis, n_basis)
     H_core: jax.Array
 
+    # Two-electron integrals tensor. Only used if
+    # Strategy.CACHED is selected.
+    # shape (n_basis, n_basis, n_basis, n_basis)
+    V: Optional[jax.Array] = None
+
     def tree_flatten(self):
         children = (
             self.basis,
@@ -129,6 +152,7 @@ class Context:
             self.S,
             self.X,
             self.H_core,
+            self.V,
         )
         aux_data = None
         return children, aux_data
@@ -227,11 +251,15 @@ class Result:
         return cls(*children)
 
 
-def build_initial_state(basis: BatchedBasis) -> State:
+def build_initial_state(basis: BatchedBasis, options: Options) -> State:
     n_basis = basis.n_basis
     S = overlap_matrix(basis)
     H_core = core_hamiltonian_matrix(basis)
     nuclear_energy = nuclear_repulsion_energy(basis.atoms)
+
+    V = None
+    if options.integral_strategy == IntegralStrategy.CACHED:
+        V = two_electron_integrals(basis)
 
     return State(
         iteration=jnp.array(0, dtype=jnp.int32),
@@ -241,6 +269,7 @@ def build_initial_state(basis: BatchedBasis) -> State:
             S=S,
             X=orthogonalize_basis(S),
             H_core=H_core,
+            V=V,
         ),
         C=jnp.zeros((n_basis, n_basis), dtype=jnp.float64),
         P=jnp.zeros((n_basis, n_basis), dtype=jnp.float64),
@@ -252,9 +281,9 @@ def build_initial_state(basis: BatchedBasis) -> State:
     )
 
 
-def build_result(state: State, converged: jax.Array) -> Result:
+def build_result(state: State, options: Options) -> Result:
     return Result(
-        converged=converged,
+        converged=state.delta_P <= options.convergence_threshold,
         iterations=state.iteration,
         electronic_energy=state.electronic_energy,
         nuclear_energy=state.context.nuclear_energy,
@@ -266,16 +295,35 @@ def build_result(state: State, converged: jax.Array) -> Result:
     )
 
 
-def scf_step(state: State) -> State:
+def _two_electron_matrix(
+    state: State, P: jax.Array, options: Options
+) -> jax.Array:
+    if options.integral_strategy == IntegralStrategy.DIRECT:
+        G = two_electron_matrix(state.context.basis, P)
+    elif options.integral_strategy == IntegralStrategy.CACHED:
+        if state.context.V is None:
+            raise ValueError(
+                "Two-electron integrals tensor is not cached in context."
+            )
+        G = two_electron_matrix_from_integrals(state.context.V, P)
+    else:
+        raise ValueError(f"Unknown strategy: {options.integral_strategy}")
+
+    return G
+
+
+def scf_step(state: State, options: Options) -> State:
     # Solve for new orbital coefficients and density.
     # C has shape (n_basis, n_basis)
-    orbital_energies, C = solve_roothaan(state.F, state.context.X)
+    orbital_energies, C = solve_roothaan(
+        state.F, state.context.X, options.perturbation
+    )
     # shape (n_basis, n_basis)
     P = closed_shell_matrix(C, state.context.basis.n_electrons)
 
     # Compute the Fock matrix and energy for the new density P.
     # shape (n_basis, n_basis)
-    G = two_electron_matrix(state.context.basis, P)
+    G = _two_electron_matrix(state, P, options)
     F = state.context.H_core + G  # shape (n_basis, n_basis)
     electronic_energy_val = electronic_energy(state.context.H_core, F, P)
 
@@ -327,16 +375,15 @@ def _maybe_run_callback(state: State, options: CallbackOptions) -> None:
     jax.lax.cond(should_run, run_callback, noop_callback)
 
 
-def _perform_step(state: State, cb_options: CallbackOptions) -> State:
-    state = scf_step(state)
-    _maybe_run_callback(state, cb_options)
+def _perform_step(state: State, options: Options) -> State:
+    state = scf_step(state, options)
+    _maybe_run_callback(state, options.callback)
 
     return state
 
 
-def solve(
-    system: BatchedBasis | Molecule,
-    options: Options = Options(),
+def _solve_convergence(
+    system: BatchedBasis | Molecule, options: Options
 ) -> Result:
     """Performs the self-consistent field (SCF) procedure to compute the
     molecular orbital coefficients and energy.
@@ -345,20 +392,16 @@ def solve(
         A Result object containing the final energy and orbital coefficients.
     """
     basis = _build_basis(system)
-    state = build_initial_state(basis)
+    state = build_initial_state(basis, options)
 
     cond_fn = functools.partial(_should_continue, options=options)
-    step_fn = functools.partial(_perform_step, cb_options=options.callback)
+    step_fn = functools.partial(_perform_step, options=options)
     state = jax.lax.while_loop(cond_fn, step_fn, state)
 
-    converged = state.delta_P <= options.convergence_threshold
-    return build_result(state, converged)
+    return build_result(state, options)
 
 
-def solve_fixed(
-    system: BatchedBasis | Molecule,
-    options: FixedOptions = FixedOptions(),
-) -> Result:
+def _solve_fixed(system: BatchedBasis | Molecule, options: Options) -> Result:
     """Performs the self-consistent field (SCF) procedure to compute the
     molecular orbital coefficients and energy.
 
@@ -366,12 +409,29 @@ def solve_fixed(
         A Result object containing the final energy and orbital coefficients.
     """
     basis = _build_basis(system)
-    state = build_initial_state(basis)
+    state = build_initial_state(basis, options)
 
     def scan_fn(state, _):
-        state = _perform_step(state, options.callback)
+        state = _perform_step(state, options)
         return state, None
 
-    state, _ = jax.lax.scan(scan_fn, state, None, length=options.n_steps)
+    state, _ = jax.lax.scan(scan_fn, state, None, length=options.max_iterations)
 
-    return build_result(state, converged=jnp.asarray(False))
+    return build_result(state, options)
+
+
+def solve(
+    system: BatchedBasis | Molecule, options: Options = Options()
+) -> Result:
+    """Performs the self-consistent field (SCF) procedure to compute the
+    molecular orbital coefficients and energy.
+
+    Returns:
+        A Result object containing the final energy and orbital coefficients.
+    """
+    if options.execution_mode == ExecutionMode.CONVERGENCE:
+        return _solve_convergence(system, options)
+    elif options.execution_mode == ExecutionMode.FIXED:
+        return _solve_fixed(system, options)
+    else:
+        raise ValueError(f"Unknown execution mode: {options.execution_mode}")

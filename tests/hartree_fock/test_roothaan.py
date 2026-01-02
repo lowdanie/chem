@@ -31,6 +31,8 @@ class _SolveTestCase:
     # Number of independent basis functions
     n_ind: int
 
+    perturbation: float
+
 
 # The basis is given by the columns of "basis".
 @pytest.mark.parametrize(
@@ -110,6 +112,7 @@ def test_orthogonalize_basis(case):
                 dtype=jnp.float64,
             ),
             n_ind=2,
+            perturbation=0.0,
         ),
         _SolveTestCase(
             F=jnp.array(
@@ -130,6 +133,28 @@ def test_orthogonalize_basis(case):
                 dtype=jnp.float64,
             ),
             n_ind=3,
+            perturbation=0.0,
+        ),
+        _SolveTestCase(
+            F=jnp.array(
+                [
+                    [1, 2, 3],
+                    [2, 4, 5],
+                    [3, 5, 6],
+                ],
+                dtype=np.float64,
+            ),
+            basis=jnp.array(
+                [
+                    [1, 0, 4],
+                    [2, 3, 1],
+                    [3, 1, 3],
+                    [4, 5, 2],
+                ],
+                dtype=jnp.float64,
+            ),
+            n_ind=3,
+            perturbation=1e-10,
         ),
         # linearly dependent basis
         _SolveTestCase(
@@ -151,6 +176,7 @@ def test_orthogonalize_basis(case):
                 dtype=np.float64,
             ),
             n_ind=2,
+            perturbation=1e-10,
         ),
     ],
 )

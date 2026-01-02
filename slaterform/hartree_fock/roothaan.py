@@ -38,7 +38,20 @@ def orthogonalize_basis(
     return U * filtered_inv_sqrt
 
 
-def solve(F: jax.Array, X: jax.Array) -> tuple[jax.Array, jax.Array]:
+def _apply_perturbation(
+    F: jax.Array, magnitude: float | jax.Array
+) -> jax.Array:
+    """Applies a small diagonal perturbation to the Fock matrix."""
+    dim = F.shape[0]
+    # We add a ramp (0, p, 2p, 3p...) to the diagonal.
+    # This ensures every eigenvalue is distinct.
+    ramp = magnitude * jnp.arange(dim)
+    return F.at[jnp.diag_indices(dim)].add(ramp)
+
+
+def solve(
+    F: jax.Array, X: jax.Array, perturbation: float | jax.Array = 0.0
+) -> tuple[jax.Array, jax.Array]:
     """
     Solves the Roothaan-Hall equations FC = SCE.
 
@@ -46,6 +59,8 @@ def solve(F: jax.Array, X: jax.Array) -> tuple[jax.Array, jax.Array]:
         F: The Fock matrix in the atomic orbital basis. shape (N, N)
         X: The orthogonalization matrix such that X.T @ S @ X is equal to
            the projection matrix onto the orbitals. shape (N, N).
+        perturbation: Magnitude of the diagonal ramp added to break degeneracy.
+                      Use ~1e-10 when differentiating to avoid NaN gradients.
 
     Returns:
         orbital_energies: Array of shape (N,).
@@ -54,6 +69,8 @@ def solve(F: jax.Array, X: jax.Array) -> tuple[jax.Array, jax.Array]:
     # Transform Fock matrix to orthogonal basis: F' = X.T * F * X
     # shape: (M, M)
     F_prime = X.T @ F @ X
+
+    F_prime = _apply_perturbation(F_prime, perturbation)
 
     # Diagonalize the transformed Fock matrix: F'C' = C'E
     # epsilon: Orbital energies

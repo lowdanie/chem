@@ -6,6 +6,7 @@ from jax import numpy as jnp
 import numpy as np
 
 import slaterform as sf
+import slaterform.hartree_fock.scf as scf
 from tests.jax_utils import pytree_utils
 
 _H2_MOLECULE = sf.Molecule(
@@ -86,7 +87,7 @@ _EXPECTED_TOTAL_ENERGY_H20 = -74.96444758  # Hartree
 
 
 def test_callback_options_pytree():
-    options = sf.hartree_fock.scf.CallbackOptions(
+    options = scf.CallbackOptions(
         interval=10,
         func=lambda state: print("test callback"),
     )
@@ -96,41 +97,21 @@ def test_callback_options_pytree():
 
 def test_callback_options_zero_callback_intervals():
     with pytest.raises(ValueError):
-        sf.hartree_fock.scf.CallbackOptions(interval=0)
+        scf.CallbackOptions(interval=0)
 
 
 def test_options_pytree():
-    options = sf.hartree_fock.scf.Options(
-        max_iterations=50,
-        convergence_threshold=1e-6,
-        callback=sf.hartree_fock.scf.CallbackOptions(
-            interval=5,
-            func=lambda state: print("test"),
-        ),
-    )
-
-    pytree_utils.assert_valid_pytree(options)
-
-
-def test_fixed_options_pytree():
-    options = sf.hartree_fock.scf.FixedOptions(
-        n_steps=20,
-        callback=sf.hartree_fock.scf.CallbackOptions(
-            interval=5,
-            func=lambda state: print("test"),
-        ),
-    )
-
-    pytree_utils.assert_valid_pytree(options)
+    pytree_utils.assert_valid_pytree(scf.Options())
 
 
 def test_context_pytree():
-    context = sf.hartree_fock.scf.Context(
+    context = scf.Context(
         basis=sf.BatchedBasis.from_molecule(_H2_MOLECULE),
         nuclear_energy=jnp.asarray(1.0),
         S=jnp.ones((2, 2)),
         X=2 * jnp.ones((2, 2)),
         H_core=3 * jnp.ones((2, 2)),
+        V=jnp.ones((2, 2, 2, 2)),
     )
 
     pytree_utils.assert_valid_pytree(context)
@@ -138,14 +119,14 @@ def test_context_pytree():
 
 def test_state_pytree():
     basis = sf.BatchedBasis.from_molecule(_H2_MOLECULE)
-    context = sf.hartree_fock.scf.Context(
+    context = scf.Context(
         basis=basis,
         nuclear_energy=jnp.asarray(1.0),
         S=jnp.ones((2, 2)),
         X=2 * jnp.ones((2, 2)),
         H_core=3 * jnp.ones((2, 2)),
     )
-    state = sf.hartree_fock.scf.State(
+    state = scf.State(
         iteration=jnp.array(0, dtype=jnp.int32),
         context=context,
         C=4 * jnp.ones((2, 2)),
@@ -162,7 +143,7 @@ def test_state_pytree():
 
 def test_result_pytree():
     basis = sf.BatchedBasis.from_molecule(_H2_MOLECULE)
-    result = sf.hartree_fock.scf.Result(
+    result = scf.Result(
         converged=jnp.asarray(True),
         iterations=jnp.array(10, dtype=jnp.int32),
         electronic_energy=jnp.asarray(-1.0),
@@ -177,9 +158,28 @@ def test_result_pytree():
     pytree_utils.assert_valid_pytree(result)
 
 
-def test_H2():
+@pytest.mark.parametrize(
+    "options",
+    [
+        scf.Options(
+            execution_mode=scf.ExecutionMode.CONVERGENCE,
+            integral_strategy=scf.IntegralStrategy.DIRECT,
+        ),
+        scf.Options(
+            max_iterations=10,
+            execution_mode=scf.ExecutionMode.FIXED,
+            integral_strategy=scf.IntegralStrategy.DIRECT,
+        ),
+        scf.Options(
+            execution_mode=scf.ExecutionMode.CONVERGENCE,
+            integral_strategy=scf.IntegralStrategy.CACHED,
+        ),
+        scf.Options.differentiable(steps=10),
+    ],
+)
+def test_H2(options: scf.Options):
     basis = sf.BatchedBasis.from_molecule(_H2_MOLECULE)
-    result = jit(sf.hartree_fock.scf.solve)(basis)
+    result = jit(scf.solve)(basis, options)
 
     np.testing.assert_almost_equal(
         result.electronic_energy,
@@ -194,23 +194,7 @@ def test_H2():
 
 
 def test_H2_from_molecule():
-    result = jit(sf.hartree_fock.scf.solve)(_H2_MOLECULE)
-
-    np.testing.assert_almost_equal(
-        result.electronic_energy,
-        _EXPECTED_ELECTRONIC_ENERGY_H2,
-        decimal=4,
-    )
-    np.testing.assert_almost_equal(
-        result.total_energy,
-        _EXPECTED_TOTAL_ENERGY_H2,
-        decimal=4,
-    )
-
-
-def test_H2_fixed():
-    basis = sf.BatchedBasis.from_molecule(_H2_MOLECULE)
-    result = jit(sf.hartree_fock.scf.solve_fixed)(basis)
+    result = jit(scf.solve)(_H2_MOLECULE)
 
     np.testing.assert_almost_equal(
         result.electronic_energy,
@@ -227,15 +211,16 @@ def test_H2_fixed():
 @pytest.mark.slow
 def test_H2O():
     basis = sf.BatchedBasis.from_molecule(_H20_MOLECULE)
-    options = sf.hartree_fock.scf.Options(
-        callback=sf.hartree_fock.scf.CallbackOptions(
-            interval=5,
+    options = scf.Options.differentiable(
+        steps=20,
+        callback=scf.CallbackOptions(
+            interval=1,
             func=lambda state: print(
                 f"Iteration {state.iteration}: E = {state.electronic_energy:.8f} Ha"
             ),
-        )
+        ),
     )
-    result = jit(sf.hartree_fock.scf.solve)(basis, options=options)
+    result = jit(scf.solve)(basis, options)
 
     np.testing.assert_almost_equal(
         result.electronic_energy,
