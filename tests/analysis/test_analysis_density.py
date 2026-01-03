@@ -1,15 +1,15 @@
 import dataclasses
 import pytest
+from collections.abc import Sequence
 
 import numpy as np
-import numpy.typing as npt
 
 import slaterform as sf
 
 
 @dataclasses.dataclass
 class _EvaluateDensityTestCase:
-    basis: sf.BatchedBasis
+    basis_blocks: Sequence[sf.BasisBlock]
     P: np.ndarray  # shape: (n_basis, n_basis)
     grid: sf.RegularGrid
     expected_density: np.ndarray  # shape: grid.dims
@@ -26,26 +26,20 @@ class _EvaluateDensityTestCase:
     "case",
     [
         _EvaluateDensityTestCase(
-            basis=sf.BatchedBasis(
-                atoms=[],
-                basis_blocks=[
-                    sf.BasisBlock(
-                        center=np.array([0.0, -1.0, 1.0]),
-                        exponents=np.array([0.4, 0.5, 0.6]),
-                        cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
-                        contraction_matrix=np.array(
-                            [
-                                [0.1, 0.2, 0.3],
-                                [0.3, 0.4, 0.5],
-                            ]
-                        ),
-                        basis_transform=np.eye(2),
+            basis_blocks=[
+                sf.BasisBlock(
+                    center=np.array([0.0, -1.0, 1.0]),
+                    exponents=np.array([0.4, 0.5, 0.6]),
+                    cartesian_powers=np.array([[0, 0, 0], [1, 0, 0]]),
+                    contraction_matrix=np.array(
+                        [
+                            [0.1, 0.2, 0.3],
+                            [0.3, 0.4, 0.5],
+                        ]
                     ),
-                ],
-                block_starts=np.array([0]),
-                batches_1e=[],
-                batches_2e=[],
-            ),
+                    basis_transform=np.eye(2),
+                ),
+            ],
             P=np.array([[1.0, 2.0], [3.0, 4.0]]),
             grid=sf.RegularGrid(
                 origin=np.array([-1.0, -1.0, 1.0]),
@@ -64,5 +58,7 @@ class _EvaluateDensityTestCase:
 def test_evaluate_density(
     case: _EvaluateDensityTestCase,
 ) -> None:
-    density_values = sf.analysis.evaluate_density(case.basis, case.P, case.grid)
+    density_values = sf.analysis.evaluate_density(
+        case.basis_blocks, case.P, case.grid
+    )
     np.testing.assert_allclose(density_values, case.expected_density)

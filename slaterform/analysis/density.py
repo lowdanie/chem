@@ -1,12 +1,14 @@
+from collections.abc import Sequence
+
 import numpy as np
 
 from slaterform.analysis import grid as grid_lib
-from slaterform.structure.batched_basis import BatchedBasis
+from slaterform.basis.basis_block import BasisBlock
 from slaterform.structure.real_space import evaluate as evaluate_basis
 
 
 def evaluate(
-    basis: BatchedBasis,
+    basis_blocks: Sequence[BasisBlock],
     P: np.ndarray,
     grid: grid_lib.RegularGrid,
 ) -> np.ndarray:
@@ -25,7 +27,7 @@ def evaluate(
 
     # Evaluate the basis functions phi at the specified points.
     # shape (..., n_basis)
-    phi = evaluate_basis(basis, points)
+    phi = evaluate_basis(basis_blocks, points)
 
     # Compute the density using the formula:
     # rho(r) = phi(r) @ P @ phi(r).T

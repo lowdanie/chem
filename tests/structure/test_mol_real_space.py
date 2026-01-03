@@ -1,20 +1,18 @@
 import dataclasses
 import pytest
+from collections.abc import Sequence
 
-from jax import numpy as jnp
 import numpy as np
-import numpy.typing as npt
 
-from slaterform.basis import basis_block
-from slaterform.structure import batched_basis
+import slaterform as sf
 from slaterform.structure import real_space
 
 
 @dataclasses.dataclass
 class _EvaluateTestCase:
-    basis: batched_basis.BatchedBasis
-    points: npt.NDArray[np.float64]  # shape (..., 3)
-    expected: npt.NDArray[np.float64]  # shape (..., n_basis)
+    basis_blocks: Sequence[sf.BasisBlock]
+    points: np.ndarray  # shape (..., 3)
+    expected: np.ndarray  # shape (..., n_basis)
 
 
 # The test data was generated using the same method as in
@@ -23,46 +21,40 @@ class _EvaluateTestCase:
     "case",
     [
         _EvaluateTestCase(
-            basis=batched_basis.BatchedBasis(
-                atoms=[],
-                basis_blocks=[
-                    basis_block.BasisBlock(
-                        center=np.array([1.0, -1.0, 0.0]),
-                        exponents=np.array([0.1, 0.2, 0.3]),
-                        cartesian_powers=np.array(
-                            [
-                                [0, 0, 0],
-                            ]
-                        ),
-                        contraction_matrix=np.array(
-                            [
-                                [0.3, 0.4, 0.5],
-                            ]
-                        ),
-                        basis_transform=np.eye(1),
+            basis_blocks=[
+                sf.BasisBlock(
+                    center=np.array([1.0, -1.0, 0.0]),
+                    exponents=np.array([0.1, 0.2, 0.3]),
+                    cartesian_powers=np.array(
+                        [
+                            [0, 0, 0],
+                        ]
                     ),
-                    basis_block.BasisBlock(
-                        center=np.array([0.0, -1.0, 1.0]),
-                        exponents=np.array([0.4, 0.5, 0.6]),
-                        cartesian_powers=np.array(
-                            [
-                                [0, 0, 0],
-                                [1, 0, 0],
-                            ]
-                        ),
-                        contraction_matrix=np.array(
-                            [
-                                [0.1, 0.2, 0.3],
-                                [0.3, 0.4, 0.5],
-                            ]
-                        ),
-                        basis_transform=np.eye(2),
+                    contraction_matrix=np.array(
+                        [
+                            [0.3, 0.4, 0.5],
+                        ]
                     ),
-                ],
-                block_starts=jnp.array([0, 1]),
-                batches_1e=[],
-                batches_2e=[],
-            ),
+                    basis_transform=np.eye(1),
+                ),
+                sf.BasisBlock(
+                    center=np.array([0.0, -1.0, 1.0]),
+                    exponents=np.array([0.4, 0.5, 0.6]),
+                    cartesian_powers=np.array(
+                        [
+                            [0, 0, 0],
+                            [1, 0, 0],
+                        ]
+                    ),
+                    contraction_matrix=np.array(
+                        [
+                            [0.1, 0.2, 0.3],
+                            [0.3, 0.4, 0.5],
+                        ]
+                    ),
+                    basis_transform=np.eye(2),
+                ),
+            ],
             points=np.array(
                 [
                     [
@@ -91,5 +83,5 @@ class _EvaluateTestCase:
     ],
 )
 def test_evaluate(case: _EvaluateTestCase):
-    actual = real_space.evaluate(case.basis, case.points)
+    actual = real_space.evaluate(case.basis_blocks, case.points)
     np.testing.assert_allclose(actual, case.expected, rtol=1e-7, atol=1e-7)

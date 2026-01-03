@@ -1,11 +1,14 @@
+from collections.abc import Sequence
+
 import numpy as np
-import numpy.typing as npt
 
 from slaterform.basis.real_space import evaluate as evaluate_basis
-from slaterform.structure.batched_basis import BatchedBasis
+from slaterform.basis.basis_block import BasisBlock
 
 
-def evaluate(basis: BatchedBasis, points: np.ndarray) -> np.ndarray:
+def evaluate(
+    basis_blocks: Sequence[BasisBlock], points: np.ndarray
+) -> np.ndarray:
     """Evaluate the basis functions at specified points.
 
     Args:
@@ -18,7 +21,7 @@ def evaluate(basis: BatchedBasis, points: np.ndarray) -> np.ndarray:
     """
     block_evals = []
 
-    for block in basis.basis_blocks:
+    for block in basis_blocks:
         block_eval = evaluate_basis(block, points)
         block_evals.append(block_eval)
 
