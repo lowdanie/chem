@@ -1,10 +1,13 @@
 import dataclasses
 import pytest
 
+import jax
 from jax import jit
+import jax.numpy as jnp
 import numpy as np
 
 import slaterform as sf
+from tests import utils as test_utils
 
 
 @dataclasses.dataclass
@@ -221,3 +224,16 @@ def test_kinetic_3d(case):
     for coords, expected in case.expected_values:
         actual = T[coords]
         np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("case", _TEST_CASES)
+def test_kinetic_3d_gradients(case):
+    def kinetic_sum(g1, g2):
+        T = sf.integrals.kinetic_3d(g1, g2)
+        return jnp.sum(T)
+
+    grad_fn = jit(jax.grad(kinetic_sum, argnums=(0, 1)))
+    grad_g1, grad_g2 = grad_fn(case.g1, case.g2)
+
+    jax.tree_util.tree_map(test_utils.assert_no_nan, grad_g1)
+    jax.tree_util.tree_map(test_utils.assert_no_nan, grad_g2)

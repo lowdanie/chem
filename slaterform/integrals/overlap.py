@@ -80,7 +80,7 @@ def _vertical_transfer(
     indices = jnp.arange(1, g1.max_degree + g2.max_degree + 1)
 
     _, s_rest = jax.lax.scan(step_fn, init_carry, indices)
-    return jnp.concatenate([jnp.array([s_base]), s_rest])
+    return jnp.concatenate([s_base[None], s_rest])
 
 
 class _HorizontalTransferParams(NamedTuple):

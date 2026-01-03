@@ -21,8 +21,17 @@ def repulsion_energy(atoms: Sequence[Atom]) -> jax.Array:
     # Compute pairwise distances.
     # shape: (n_atoms, n_atoms, 3)
     deltas = positions[:, None, :] - positions[None, :, :]
+
     # shape: (n_atoms, n_atoms)
-    diff_matrix = jnp.linalg.norm(deltas, axis=-1)
+    dist_sq = jnp.sum(deltas**2, axis=-1)
+
+    # To avoid division by zero, add identity matrix to dist_sq.
+    # Note that the diagonal elements are not used in the final sum.
+    # shape: (n_atoms, n_atoms)
+    safe_dist_sq = dist_sq + jnp.eye(dist_sq.shape[0])
+
+    # shape: (n_atoms, n_atoms)
+    diff_matrix = jnp.sqrt(safe_dist_sq)
 
     # Iterate over pairs of atoms (i, j) with i < j to avoid double counting.
     idx_i, idx_j = jnp.triu_indices(len(atoms), k=1)

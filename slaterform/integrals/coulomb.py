@@ -42,7 +42,7 @@ def boys(n: int, x: jax.Array) -> jax.Array:
         The evaluated function.
     """
     # Avoid division by zero
-    safe_x = jnp.maximum(x, _SMALL_X_THRESHOLD)
+    safe_x = jnp.where(x < _SMALL_X_THRESHOLD, 1.0, x)
 
     # Compute the exact formula using the safe x
     numerator = gamma(n + 0.5) * gammainc(n + 0.5, safe_x)

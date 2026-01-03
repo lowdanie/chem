@@ -183,8 +183,8 @@ class State:
     # Fock matrix eigenvalues. shape (n_basis, )
     orbital_energies: jax.Array
 
-    # Change in density matrix. ||P_new - P_old||_2
-    delta_P: jax.Array
+    # Change in density matrix. ||P_new - P_old||^2
+    delta_P_sq: jax.Array
 
     def tree_flatten(self):
         children = (
@@ -196,7 +196,7 @@ class State:
             self.electronic_energy,
             self.total_energy,
             self.orbital_energies,
-            self.delta_P,
+            self.delta_P_sq,
         )
         aux_data = None
         return children, aux_data
@@ -261,13 +261,15 @@ def build_initial_state(basis: BatchedBasis, options: Options) -> State:
     if options.integral_strategy == IntegralStrategy.CACHED:
         V = two_electron_integrals(basis)
 
+    conv_thresh_sq = jnp.square(options.convergence_threshold)
+
     return State(
         iteration=jnp.array(0, dtype=jnp.int32),
         context=Context(
             basis=basis,
             nuclear_energy=nuclear_energy,
             S=S,
-            X=orthogonalize_basis(S),
+            X=orthogonalize_basis(S, perturbation=options.perturbation),
             H_core=H_core,
             V=V,
         ),
@@ -277,13 +279,17 @@ def build_initial_state(basis: BatchedBasis, options: Options) -> State:
         electronic_energy=jnp.asarray(0.0, dtype=jnp.float64),
         total_energy=nuclear_energy,
         orbital_energies=jnp.zeros(n_basis, dtype=jnp.float64),
-        delta_P=jnp.array(jnp.inf, dtype=jnp.float64),
+        delta_P_sq=jnp.array(conv_thresh_sq + 1.0, dtype=jnp.float64),
     )
+
+
+def _is_converged(state: State, options: Options) -> jax.Array:
+    return state.delta_P_sq <= jnp.square(options.convergence_threshold)
 
 
 def build_result(state: State, options: Options) -> Result:
     return Result(
-        converged=state.delta_P <= options.convergence_threshold,
+        converged=_is_converged(state, options),
         iterations=state.iteration,
         electronic_energy=state.electronic_energy,
         nuclear_energy=state.context.nuclear_energy,
@@ -336,7 +342,7 @@ def scf_step(state: State, options: Options) -> State:
         electronic_energy=electronic_energy_val,
         total_energy=electronic_energy_val + state.context.nuclear_energy,
         orbital_energies=orbital_energies,
-        delta_P=jnp.linalg.norm(P - state.P),
+        delta_P_sq=jnp.sum(jnp.square(P - state.P)),
     )
 
 
@@ -355,7 +361,7 @@ def _build_basis(
 
 def _should_continue(state: State, options: Options) -> jax.Array:
     return jnp.logical_and(
-        state.delta_P > options.convergence_threshold,
+        jnp.logical_not(_is_converged(state, options)),
         state.iteration < options.max_iterations,
     )
 

@@ -9,19 +9,22 @@ import slaterform as sf
 import slaterform.hartree_fock.scf as scf
 from tests.jax_utils import pytree_utils
 
+_H_SHELLS = sf.adapters.bse.load("sto-3g", 1)
+_O_SHELLS = sf.adapters.bse.load("sto-3g", 8)
+
 _H2_MOLECULE = sf.Molecule(
     atoms=[
         sf.Atom(
             symbol="H",
             number=1,
             position=np.array([0.0, 0.0, 0.0], dtype=np.float64),
-            shells=sf.adapters.bse.load("sto-3g", 1),
+            shells=_H_SHELLS,
         ),
         sf.Atom(
             symbol="H",
             number=1,
             position=np.array([0.0, 0.0, 1.4], dtype=np.float64),
-            shells=sf.adapters.bse.load("sto-3g", 1),
+            shells=_H_SHELLS,
         ),
     ]
 )
@@ -32,13 +35,13 @@ _EXPECTED_ELECTRONIC_ENERGY_H2 = -1.8310  # Hartree
 _EXPECTED_TOTAL_ENERGY_H2 = -1.1167  # Hartree
 
 # Water molecule in Bohr units. The geometry is from pubchem.
-_H20_MOLECULE = sf.Molecule(
+_H2O_MOLECULE = sf.Molecule(
     atoms=[
         sf.Atom(
             symbol="O",
             number=8,
             position=np.array([0.0, 0.0, 0.0], dtype=np.float64),
-            shells=sf.adapters.bse.load("sto-3g", 8),
+            shells=_O_SHELLS,
         ),
         sf.Atom(
             symbol="H",
@@ -46,7 +49,7 @@ _H20_MOLECULE = sf.Molecule(
             position=np.array(
                 [0.52421003, 1.68733646, 0.48074633], dtype=np.float64
             ),
-            shells=sf.adapters.bse.load("sto-3g", 1),
+            shells=_H_SHELLS,
         ),
         sf.Atom(
             symbol="H",
@@ -54,7 +57,7 @@ _H20_MOLECULE = sf.Molecule(
             position=np.array(
                 [1.14668581, -0.45032174, -1.35474466], dtype=np.float64
             ),
-            shells=sf.adapters.bse.load("sto-3g", 1),
+            shells=_H_SHELLS,
         ),
     ]
 )
@@ -83,7 +86,26 @@ _H20_MOLECULE = sf.Molecule(
 # print(f"Electronic Energy: {mf.e_tot - mol.energy_nuc():.8f} Ha")
 # print(f"Total Energy:      {mf.e_tot:.4f} Ha")
 _EXPECTED_ELECTRONIC_ENERGY_H2O = -84.04881208  # Hartree
-_EXPECTED_TOTAL_ENERGY_H20 = -74.96444758  # Hartree
+_EXPECTED_TOTAL_ENERGY_H2O = -74.96444758  # Hartree
+
+
+def _build_h2_molecule(bond_length: jax.Array) -> sf.Molecule:
+    return sf.Molecule(
+        atoms=[
+            sf.Atom(
+                symbol="H",
+                number=1,
+                position=jnp.array([0.0, 0.0, 0.0], dtype=np.float64),
+                shells=_H_SHELLS,
+            ),
+            sf.Atom(
+                symbol="H",
+                number=1,
+                position=jnp.array([0.0, 0.0, bond_length], dtype=np.float64),
+                shells=_H_SHELLS,
+            ),
+        ]
+    )
 
 
 def test_callback_options_pytree():
@@ -135,7 +157,7 @@ def test_state_pytree():
         electronic_energy=7 * jnp.asarray(1.0),
         total_energy=8 * jnp.asarray(1.0),
         orbital_energies=9 * jnp.ones((2,)),
-        delta_P=10 * jnp.asarray(1.0),
+        delta_P_sq=10 * jnp.asarray(1.0),
     )
 
     pytree_utils.assert_valid_pytree(state)
@@ -208,9 +230,32 @@ def test_H2_from_molecule():
     )
 
 
+def test_H2_gradients():
+    def energy(bond_length: jax.Array) -> jax.Array:
+        mol = _build_h2_molecule(bond_length)
+        options = scf.Options.differentiable(
+            steps=20,
+            callback=scf.CallbackOptions(
+                interval=1,
+                func=lambda state: print(
+                    f"Iteration {state.iteration}: E = {state.electronic_energy:.8f} Ha"
+                ),
+            ),
+        )
+        result = scf.solve(mol, options)
+        return result.total_energy
+
+    val_and_grad_fn = jit(jax.value_and_grad(energy))
+    E, grad_E = val_and_grad_fn(1.4)
+
+    np.testing.assert_almost_equal(E, _EXPECTED_TOTAL_ENERGY_H2, decimal=4)
+    assert not np.isnan(grad_E)
+    assert np.abs(grad_E) < 0.1
+
+
 @pytest.mark.slow
 def test_H2O():
-    basis = sf.BatchedBasis.from_molecule(_H20_MOLECULE)
+    basis = sf.BatchedBasis.from_molecule(_H2O_MOLECULE)
     options = scf.Options.differentiable(
         steps=20,
         callback=scf.CallbackOptions(
@@ -229,6 +274,6 @@ def test_H2O():
     )
     np.testing.assert_almost_equal(
         result.total_energy,
-        _EXPECTED_TOTAL_ENERGY_H20,
+        _EXPECTED_TOTAL_ENERGY_H2O,
         decimal=5,
     )

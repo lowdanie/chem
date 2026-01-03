@@ -24,6 +24,9 @@ def promote_dataclass_fields(obj):
         if type(value) is object:
             continue
 
+        if value is None:
+            continue
+
         if field.type in (Array, IntScalar, Scalar):
             setattr(obj, field.name, jnp.asarray(value))
         elif field.type == StaticArray:

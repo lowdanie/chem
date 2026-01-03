@@ -3,9 +3,7 @@ from typing import Callable, NamedTuple
 import functools
 
 import jax
-from jax import jit
 from jax import numpy as jnp
-import numpy as np
 
 
 from slaterform.integrals.gaussian import GaussianBasis3d

@@ -2,8 +2,21 @@ import jax
 from jax import numpy as jnp
 
 
+def _apply_perturbation(
+    M: jax.Array, magnitude: float | jax.Array
+) -> jax.Array:
+    """Applies a small diagonal perturbation to the matrix."""
+    dim = M.shape[0]
+    # We add a ramp (0, p, 2p, 3p...) to the diagonal.
+    # This ensures every eigenvalue is distinct.
+    ramp = magnitude * jnp.arange(dim)
+    return M.at[jnp.diag_indices(dim)].add(ramp)
+
+
 def orthogonalize_basis(
-    S: jax.Array, linear_dep_threshold: float = 1e-8
+    S: jax.Array,
+    linear_dep_threshold: float = 1e-8,
+    perturbation: float | jax.Array = 0.0,
 ) -> jax.Array:
     """
     Computes the orthogonalization matrix X = S^(-1/2).
@@ -14,6 +27,8 @@ def orthogonalize_basis(
     Args:
         S: Overlap matrix (N, N)
         linear_dep_threshold: Eigenvalues smaller than this are zeroized.
+        perturbation: Magnitude of the diagonal ramp added to break degeneracy.
+                      Use ~1e-10 when differentiating to avoid NaN gradients.
 
     Returns:
         X: Transformation matrix of shape (N, N).
@@ -22,6 +37,8 @@ def orthogonalize_basis(
            Note: Since eigh sorts ascendingly, P will typically look like
            diag(0, ..., 0, 1, ..., 1).
     """
+    S = _apply_perturbation(S, perturbation)
+
     # Diagonalize S
     # S = U * s * U.T
     s, U = jnp.linalg.eigh(S)
@@ -36,17 +53,6 @@ def orthogonalize_basis(
     # X = U * s^(-1/2)
     # We use broadcasting for the multiplication
     return U * filtered_inv_sqrt
-
-
-def _apply_perturbation(
-    F: jax.Array, magnitude: float | jax.Array
-) -> jax.Array:
-    """Applies a small diagonal perturbation to the Fock matrix."""
-    dim = F.shape[0]
-    # We add a ramp (0, p, 2p, 3p...) to the diagonal.
-    # This ensures every eigenvalue is distinct.
-    ramp = magnitude * jnp.arange(dim)
-    return F.at[jnp.diag_indices(dim)].add(ramp)
 
 
 def solve(

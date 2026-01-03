@@ -1,10 +1,13 @@
 import dataclasses
 import pytest
 
+import jax
 from jax import jit
+import jax.numpy as jnp
 import numpy as np
 
 import slaterform as sf
+from tests import utils as test_utils
 
 
 @dataclasses.dataclass
@@ -208,3 +211,16 @@ def test_overlap_3d(case):
     for coords, expected in case.expected_values:
         actual = S[coords]
         np.testing.assert_allclose(actual, expected, rtol=1e-14, atol=1e-15)
+
+
+@pytest.mark.parametrize("case", _TEST_CASES_3D)
+def test_overlap_3d_gradients(case):
+    def overlap_sum(g1, g2):
+        S = sf.integrals.overlap_3d(g1, g2)
+        return jnp.sum(S)
+
+    grad_fn = jit(jax.grad(overlap_sum, argnums=(0, 1)))
+    grad_g1, grad_g2 = grad_fn(case.g1, case.g2)
+
+    jax.tree_util.tree_map(test_utils.assert_no_nan, grad_g1)
+    jax.tree_util.tree_map(test_utils.assert_no_nan, grad_g2)

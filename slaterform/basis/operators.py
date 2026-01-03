@@ -116,7 +116,6 @@ def one_electron_matrix(
         block1.contraction_matrix,  # shape (n_cart1, n_exp1)
         block2.contraction_matrix,  # shape (n_cart2, n_exp2)
         primitive_integrals,  # shape (n_exp1, n_exp2, n_cart1, n_cart2)
-        optimize=True,
     )
 
     # Transform to the contracted basis representation.
@@ -189,7 +188,6 @@ def two_electron_matrix(
         block3.contraction_matrix,  # shape (n_cart3, n_exp3)
         block4.contraction_matrix,  # shape (n_cart4, n_exp4)
         primitive_integrals,  # shape (n_exp1, ... , n_exp4, n_cart1, .., n_cart4)
-        optimize=True,
     )
 
     # Transform to the contracted basis representation.
@@ -201,5 +199,4 @@ def two_electron_matrix(
         block3.basis_transform,  # (n_basis3, n_cart3)
         block4.basis_transform,  # (n_basis4, n_cart4)
         cartesian_matrix,  # (n_cart1, n_cart2, n_cart3, n_cart4)
-        optimize=True,
     )
