@@ -1,5 +1,7 @@
 ![Coverage Status](./coverage.svg)
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lowdanie/hartree-fock-solver/blob/main/notebooks/geometry_optimization.ipynb)
+
 # Slaterform
 
 Slaterform is a self-contained Hartree-Fock engine written in pure python with numpy.
