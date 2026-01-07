@@ -381,6 +381,7 @@ def _maybe_run_callback(state: State, options: CallbackOptions) -> None:
     jax.lax.cond(should_run, run_callback, noop_callback)
 
 
+@jax.checkpoint
 def _perform_step(state: State, options: Options) -> State:
     state = scf_step(state, options)
     _maybe_run_callback(state, options.callback)
