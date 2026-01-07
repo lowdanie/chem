@@ -101,6 +101,30 @@ Here is what the result looks like rendered by [3dmol](https://3dmol.org/doc/ind
   <img src="assets/images/h2o_density_cloud.png" width="600" alt="Electron Density of Water">
 </p>
 
+# Installation 
+
+```bash
+git clone [https://github.com/lowdanie/hartree-fock-solver.git](https://github.com/lowdanie/hartree-fock-solver.git)
+cd hartree-fock-solver
+
+pip install -e .
+```
+
+# Tests
+
+This project uses `pytest` for testing and `pytest-cov` for coverage.
+
+```bash
+# Run the standard test suite (skips slow tests by default)
+pytest
+
+# Run all tests (including slow ones)
+pytest -m ""
+
+# Check code coverage
+pytest --cov=slaterform
+```
+
 
 
 
