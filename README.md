@@ -32,7 +32,7 @@ def total_energy(molecule: sf.Molecule):
 total_energy_and_grad = jax.jit(jax.value_and_grad(total_energy))
 ```
 
-In this [![colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lowdanie/hartree-fock-solver/blob/main/notebooks/geometry_optimization.ipynb)
+In this [colab notebook](https://colab.research.google.com/github/lowdanie/hartree-fock-solver/blob/main/notebooks/geometry_optimization.ipynb)
 you can select a molecule, optimize the nuclear positions with `optax`, and finally visualize the trajectory of the nuclei and electron density using
 [3dmol](https://3dmol.org/doc/index.html). Here is a sample output for [methane](https://en.wikipedia.org/wiki/Methane). We initialize the nuclei to lie flat on a plane, and the optimizer moves them into the classic tetrahedral configuration. The blue cloud is rendered by sampling the electron density returned by `scf.solve`.
 
